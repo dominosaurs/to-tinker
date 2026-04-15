@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import { ToTinkerCodeLensProvider } from './codeLens'
+import { ToTinkerCodeLensProvider } from './code-lens'
 import { COMMANDS, type RunKind } from './commands'
 import { getConfig } from './config'
 import {
