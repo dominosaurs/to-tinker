@@ -168,7 +168,7 @@
             ]
         }
     },
-    "description": "Run Laravel Tinker selections, files, and methods in VS Code through php artisan tinker.",
+    "description": "Run any PHP or Laravel code in one click from VS Code ⚡",
     "devDependencies": {
         "@biomejs/biome": "2.4.12",
         "@types/node": "^24.6.0",
