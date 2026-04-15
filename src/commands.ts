@@ -1,12 +1,12 @@
 export const COMMANDS = {
-  runSelection: "toTinker.runSelection",
-  runSelectionDisableSandbox: "toTinker.runSelectionDisableSandbox",
-  runFile: "toTinker.runFile",
-  runFileDisableSandbox: "toTinker.runFileDisableSandbox",
-  runMethod: "toTinker.runMethod",
-  runMethodDisableSandbox: "toTinker.runMethodDisableSandbox",
-} as const;
+    runFile: 'toTinker.runFile',
+    runFileDisableSandbox: 'toTinker.runFileDisableSandbox',
+    runMethod: 'toTinker.runMethod',
+    runMethodDisableSandbox: 'toTinker.runMethodDisableSandbox',
+    runSelection: 'toTinker.runSelection',
+    runSelectionDisableSandbox: 'toTinker.runSelectionDisableSandbox',
+} as const
 
-export type CommandName = keyof typeof COMMANDS;
+export type CommandName = keyof typeof COMMANDS
 
-export type RunKind = "selection" | "file" | "method";
+export type RunKind = 'selection' | 'file' | 'method'

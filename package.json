@@ -1,125 +1,126 @@
 {
-  "$schema": "https://json.schemastore.org/package.json",
-  "name": "to-tinker",
-  "displayName": "To-Tinker",
-  "description": "Run Laravel PHP selections, files, and methods through artisan tinker from VS Code.",
-  "version": "0.1.0",
-  "publisher": "dominosaurs",
-  "license": "MIT",
-  "preview": true,
-  "engines": {
-    "vscode": "^1.99.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "files": [
-    "out/**",
-    "README.md",
-    "package.json"
-  ],
-  "keywords": [
-    "laravel",
-    "php",
-    "tinker",
-    "artisan",
-    "debugging"
-  ],
-  "main": "./out/extension.js",
-  "activationEvents": [
-    "onCommand:toTinker.runSelection",
-    "onCommand:toTinker.runSelectionDisableSandbox",
-    "onCommand:toTinker.runFile",
-    "onCommand:toTinker.runFileDisableSandbox",
-    "onCommand:toTinker.runMethod",
-    "onCommand:toTinker.runMethodDisableSandbox"
-  ],
-  "contributes": {
-    "commands": [
-      {
-        "command": "toTinker.runSelection",
-        "title": "Run Selection",
-        "category": "To-Tinker",
-        "enablement": "editorLangId == php"
-      },
-      {
-        "command": "toTinker.runSelectionDisableSandbox",
-        "title": "Run Selection (Disable Sandbox)",
-        "category": "To-Tinker",
-        "enablement": "editorLangId == php"
-      },
-      {
-        "command": "toTinker.runFile",
-        "title": "Run File",
-        "category": "To-Tinker",
-        "enablement": "editorLangId == php"
-      },
-      {
-        "command": "toTinker.runFileDisableSandbox",
-        "title": "Run File (Disable Sandbox)",
-        "category": "To-Tinker",
-        "enablement": "editorLangId == php"
-      },
-      {
-        "command": "toTinker.runMethod",
-        "title": "Run Method",
-        "category": "To-Tinker",
-        "enablement": "editorLangId == php"
-      },
-      {
-        "command": "toTinker.runMethodDisableSandbox",
-        "title": "Run Method (Disable Sandbox)",
-        "category": "To-Tinker",
-        "enablement": "editorLangId == php"
-      }
+    "$schema": "https://json.schemastore.org/package.json",
+    "activationEvents": [
+        "onCommand:toTinker.runSelection",
+        "onCommand:toTinker.runSelectionDisableSandbox",
+        "onCommand:toTinker.runFile",
+        "onCommand:toTinker.runFileDisableSandbox",
+        "onCommand:toTinker.runMethod",
+        "onCommand:toTinker.runMethodDisableSandbox"
     ],
-    "configuration": {
-      "title": "To-Tinker",
-      "properties": {
-        "toTinker.phpPath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to the PHP executable. Leave empty to use php from PATH."
-        },
-        "toTinker.timeoutSeconds": {
-          "type": "number",
-          "default": 15,
-          "minimum": 1,
-          "description": "Timeout for the spawned artisan tinker process."
-        },
-        "toTinker.clearOutputOnRun": {
-          "type": "boolean",
-          "default": true,
-          "description": "Clear the To-Tinker output channel before each run."
-        },
-        "toTinker.sandbox.defaultEnabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable the partial sandbox by default."
-        },
-        "toTinker.sandbox.fakeStorage": {
-          "type": "boolean",
-          "default": false,
-          "description": "Also fake Laravel storage disks inside sandboxed runs."
+    "categories": [
+        "Other"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runSelection",
+                "enablement": "editorLangId == php",
+                "title": "Run Selection"
+            },
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runSelectionDisableSandbox",
+                "enablement": "editorLangId == php",
+                "title": "Run Selection (Disable Sandbox)"
+            },
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runFile",
+                "enablement": "editorLangId == php",
+                "title": "Run File"
+            },
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runFileDisableSandbox",
+                "enablement": "editorLangId == php",
+                "title": "Run File (Disable Sandbox)"
+            },
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runMethod",
+                "enablement": "editorLangId == php",
+                "title": "Run Method"
+            },
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runMethodDisableSandbox",
+                "enablement": "editorLangId == php",
+                "title": "Run Method (Disable Sandbox)"
+            }
+        ],
+        "configuration": {
+            "properties": {
+                "toTinker.clearOutputOnRun": {
+                    "default": true,
+                    "description": "Clear the To-Tinker output channel before each run.",
+                    "type": "boolean"
+                },
+                "toTinker.phpPath": {
+                    "default": "",
+                    "description": "Path to the PHP executable. Leave empty to use php from PATH.",
+                    "type": "string"
+                },
+                "toTinker.sandbox.defaultEnabled": {
+                    "default": true,
+                    "description": "Enable the partial sandbox by default.",
+                    "type": "boolean"
+                },
+                "toTinker.sandbox.fakeStorage": {
+                    "default": false,
+                    "description": "Also fake Laravel storage disks inside sandboxed runs.",
+                    "type": "boolean"
+                },
+                "toTinker.timeoutSeconds": {
+                    "default": 15,
+                    "description": "Timeout for the spawned artisan tinker process.",
+                    "minimum": 1,
+                    "type": "number"
+                }
+            },
+            "title": "To-Tinker"
         }
-      }
-    }
-  },
-  "scripts": {
-    "build": "vite build",
-    "check": "tsc --noEmit",
-    "test": "vitest run",
-    "package": "vsce package --no-dependencies --allow-missing-repository",
-    "prepackage": "bun run build"
-  },
-  "devDependencies": {
-    "@types/node": "^24.6.0",
-    "@types/vscode": "^1.99.0",
-    "@vscode/vsce": "^3.6.2",
-    "@vscode/test-electron": "^2.5.2",
-    "typescript": "^5.9.3",
-    "vite": "^7.1.10",
-    "vite-plugin-static-copy": "^3.1.4",
-    "vitest": "^3.2.4"
-  }
+    },
+    "description": "Run Laravel PHP selections, files, and methods through artisan tinker from VS Code.",
+    "devDependencies": {
+        "@biomejs/biome": "2.4.12",
+        "@types/node": "^24.6.0",
+        "@types/vscode": "^1.99.0",
+        "@vscode/test-electron": "^2.5.2",
+        "@vscode/vsce": "^3.6.2",
+        "typescript": "^5.9.3",
+        "vite": "^7.1.10",
+        "vite-plugin-static-copy": "^3.1.4",
+        "vitest": "^3.2.4"
+    },
+    "displayName": "To-Tinker",
+    "engines": {
+        "vscode": "^1.99.0"
+    },
+    "files": [
+        "out/**",
+        "README.md",
+        "package.json"
+    ],
+    "keywords": [
+        "laravel",
+        "php",
+        "tinker",
+        "artisan",
+        "debugging"
+    ],
+    "license": "MIT",
+    "main": "./out/extension.js",
+    "name": "to-tinker",
+    "preview": true,
+    "publisher": "dominosaurs",
+    "scripts": {
+        "build": "vite build",
+        "lint": "biome check --write && tsc --noEmit",
+        "package": "vsce package --no-dependencies --allow-missing-repository",
+        "prepackage": "bun run build",
+        "test": "vitest run"
+    },
+    "version": "0.1.0"
 }

@@ -1,36 +1,39 @@
-import { describe, expect, it, vi } from "vitest";
-import * as vscode from "vscode";
-import { Output } from "../src/output";
+import { describe, expect, it, vi } from 'vitest'
+import * as vscode from 'vscode'
+import { Output } from '../src/output'
 
-describe("output", () => {
-  it("opens markdown preview only once", async () => {
-    const output = new Output();
-    const executeCommand = vi.mocked(vscode.commands.executeCommand);
+describe('output', () => {
+    it('opens markdown preview only once', async () => {
+        const output = new Output()
+        const executeCommand = vi.mocked(vscode.commands.executeCommand)
 
-    executeCommand.mockClear();
+        executeCommand.mockClear()
 
-    await output.show({
-      summary: {
-        kind: "selection",
-        filePath: "/tmp/demo.php",
-        rootPath: "/tmp",
-        sandboxEnabled: true,
-      },
-      status: "running",
-    });
+        await output.show({
+            status: 'running',
+            summary: {
+                filePath: '/tmp/demo.php',
+                kind: 'selection',
+                rootPath: '/tmp',
+                sandboxEnabled: true,
+            },
+        })
 
-    await output.show({
-      summary: {
-        kind: "selection",
-        filePath: "/tmp/demo.php",
-        rootPath: "/tmp",
-        sandboxEnabled: true,
-      },
-      status: "success",
-      result: "42",
-    });
+        await output.show({
+            result: '42',
+            status: 'success',
+            summary: {
+                filePath: '/tmp/demo.php',
+                kind: 'selection',
+                rootPath: '/tmp',
+                sandboxEnabled: true,
+            },
+        })
 
-    expect(executeCommand).toHaveBeenCalledTimes(1);
-    expect(executeCommand).toHaveBeenCalledWith("markdown.showPreviewToSide", expect.anything());
-  });
-});
+        expect(executeCommand).toHaveBeenCalledTimes(1)
+        expect(executeCommand).toHaveBeenCalledWith(
+            'markdown.showPreviewToSide',
+            expect.anything(),
+        )
+    })
+})
