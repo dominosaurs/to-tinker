@@ -4,3 +4,7 @@
 node_modules
 out
 *.vsix
+
+# mempalace
+entities.json
+mempalace.yaml
