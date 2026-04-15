@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "vscode-extension-guide": {
+      "source": "aktsmm/agent-skills",
+      "sourceType": "github",
+      "computedHash": "5d019ba026942f0e2a365a65bf1e3ec6bf2b7f16a75d2666bd7e25a0363cb741"
+    }
+  }
+}
