@@ -12,16 +12,11 @@ export default defineConfig({
         rollupOptions: {
             external: ['vscode', 'node:child_process', 'node:fs', 'node:path'],
             output: {
+                codeSplitting: false,
                 exports: 'named',
-                inlineDynamicImports: true,
             },
         },
         sourcemap: false,
         target: 'node20',
-    },
-    test: {
-        environment: 'node',
-        include: ['test/**/*.test.ts'],
-        setupFiles: ['test/setup.ts'],
     },
 })
