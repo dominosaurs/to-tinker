@@ -44,8 +44,7 @@ export class ToTinkerCodeLensProvider implements vscode.CodeLensProvider {
                         document.positionAt(method.start),
                     ],
                     command: COMMANDS.runMethodAt,
-                    title: '$(play) Run',
-                    tooltip: 'Run this method',
+                    title: '$(play) To Tinker: Run',
                 }),
         )
     }

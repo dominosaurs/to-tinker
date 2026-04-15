@@ -26,8 +26,11 @@
                 "category": "To Tinker",
                 "command": "toTinker.runPrimary",
                 "enablement": "editorLangId == php",
-                "icon": "$(play)",
-                "title": "Run"
+                "icon": {
+                    "dark": "assets/images/icon.jpg",
+                    "light": "assets/images/icon.jpg"
+                },
+                "title": "To Tinker: Run"
             },
             {
                 "category": "To Tinker",
