@@ -59,7 +59,7 @@ export async function executeTinker(
             `run blocked: active process for ${request.workspace.rootPath}`,
         )
         throw new Error(
-            `A To-Tinker run is already active for ${request.workspace.rootPath}.`,
+            `A To Tinker run is already active for ${request.workspace.rootPath}.`,
         )
     }
 
@@ -162,7 +162,7 @@ export async function renderExecutionReport(
             summary,
         })
         void vscode.window.showErrorMessage(
-            `To-Tinker run timed out after ${getConfig().timeoutSeconds} seconds.`,
+            `To Tinker run timed out after ${getConfig().timeoutSeconds} seconds.`,
         )
         return
     }
@@ -184,7 +184,7 @@ export async function renderExecutionReport(
             summary,
         })
         void vscode.window.showErrorMessage(
-            'To-Tinker execution failed. See output channel.',
+            'To Tinker execution failed. See output channel.',
         )
         return
     }

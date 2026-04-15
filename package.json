@@ -18,49 +18,49 @@
     "contributes": {
         "commands": [
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.showLogs",
-                "title": "To-Tinker: Show Logs"
+                "title": "Show Logs"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runPrimary",
                 "enablement": "editorLangId == php",
                 "icon": "$(play)",
-                "title": "To-Tinker"
+                "title": "Run"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runSelection",
                 "enablement": "editorLangId == php",
-                "title": "To-Tinker"
+                "title": "To Tinker"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runSelectionDisableSandbox",
                 "enablement": "editorLangId == php",
-                "title": "To-Tinker (Disable Sandbox)"
+                "title": "To Tinker (Disable Sandbox)"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
                 "title": "Run File"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runFileDisableSandbox",
                 "enablement": "editorLangId == php",
                 "title": "Run File (Disable Sandbox)"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runMethod",
                 "enablement": "editorLangId == php",
                 "title": "Run Method"
             },
             {
-                "category": "To-Tinker",
+                "category": "To Tinker",
                 "command": "toTinker.runMethodDisableSandbox",
                 "enablement": "editorLangId == php",
                 "title": "Run Method (Disable Sandbox)"
@@ -70,12 +70,12 @@
             "properties": {
                 "toTinker.clearOutputOnRun": {
                     "default": true,
-                    "description": "Clear the To-Tinker output channel before each run.",
+                    "description": "Clear the To Tinker output channel before each run.",
                     "type": "boolean"
                 },
                 "toTinker.codeLens.enabled": {
                     "default": true,
-                    "description": "Show To-Tinker CodeLens above supported PHP methods.",
+                    "description": "Show To Tinker CodeLens above supported PHP methods.",
                     "type": "boolean"
                 },
                 "toTinker.phpPath": {
@@ -100,7 +100,7 @@
                     "type": "number"
                 }
             },
-            "title": "To-Tinker"
+            "title": "To Tinker"
         },
         "keybindings": [
             {
@@ -111,6 +111,32 @@
             }
         ],
         "menus": {
+            "commandPalette": [
+                {
+                    "command": "toTinker.runSelection",
+                    "when": "false"
+                },
+                {
+                    "command": "toTinker.runSelectionDisableSandbox",
+                    "when": "false"
+                },
+                {
+                    "command": "toTinker.runFile",
+                    "when": "false"
+                },
+                {
+                    "command": "toTinker.runFileDisableSandbox",
+                    "when": "false"
+                },
+                {
+                    "command": "toTinker.runMethod",
+                    "when": "false"
+                },
+                {
+                    "command": "toTinker.runMethodDisableSandbox",
+                    "when": "false"
+                }
+            ],
             "editor/context": [
                 {
                     "command": "toTinker.runSelection",
@@ -144,15 +170,16 @@
         "vite-plugin-static-copy": "^3.1.4",
         "vitest": "^3.2.4"
     },
-    "displayName": "To-Tinker",
+    "displayName": "To Tinker",
     "engines": {
         "vscode": "^1.99.0"
     },
     "files": [
         "assets/images/icon.jpg",
         "out/**",
-        "README.md",
-        "package.json"
+        "LICENSE",
+        "package.json",
+        "README.md"
     ],
     "icon": "assets/images/icon.jpg",
     "keywords": [

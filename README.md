@@ -1,4 +1,4 @@
-# To-Tinker
+# To Tinker
 
 VS Code extension for running Laravel PHP selections, files, and methods through `php artisan tinker`.
 

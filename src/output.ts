@@ -42,7 +42,7 @@ export class Output {
 
         this.panel = vscode.window.createWebviewPanel(
             'toTinkerReport',
-            'To-Tinker',
+            'To Tinker',
             {
                 preserveFocus: true,
                 viewColumn: vscode.ViewColumn.Beside,
@@ -79,7 +79,7 @@ function renderReport(report: RunReport): string {
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>To-Tinker</title>
+    <title>To Tinker</title>
     <style>
         :root {
             color-scheme: light dark;

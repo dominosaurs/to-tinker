@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 
 export class Log {
     private readonly channel =
-        vscode.window.createOutputChannel('To-Tinker Logs')
+        vscode.window.createOutputChannel('To Tinker Logs')
 
     show(): void {
         this.channel.show(true)
