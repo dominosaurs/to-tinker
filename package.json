@@ -161,7 +161,7 @@
             ]
         }
     },
-    "description": "Run Laravel PHP selections, files, and methods through artisan tinker from VS Code.",
+    "description": "Run Laravel Tinker selections, files, and methods in VS Code through php artisan tinker.",
     "devDependencies": {
         "@biomejs/biome": "2.4.12",
         "@types/node": "^24.6.0",
@@ -190,9 +190,16 @@
     "icon": "assets/images/icon.jpg",
     "keywords": [
         "laravel",
-        "php",
-        "tinker",
+        "laravel tinker",
         "artisan",
+        "artisan tinker",
+        "php",
+        "php selection",
+        "vscode",
+        "vscode laravel",
+        "run selection",
+        "run file",
+        "run method",
         "debugging"
     ],
     "license": "MIT",
