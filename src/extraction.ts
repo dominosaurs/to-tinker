@@ -50,11 +50,8 @@ export function findMethodAtPosition(
     document: vscode.TextDocument,
     position: vscode.Position,
 ): MethodInfo {
-    const text = document.getText()
     const cursorOffset = document.offsetAt(position)
-    const namespaceName = parseNamespace(text)
-    const classes = parseClasses(text)
-    const methods = parseMethods(text, classes, namespaceName)
+    const methods = findMethods(document)
     const target = methods
         .filter(
             method =>
@@ -70,6 +67,13 @@ export function findMethodAtPosition(
     }
 
     return target
+}
+
+export function findMethods(document: vscode.TextDocument): MethodInfo[] {
+    const text = document.getText()
+    const namespaceName = parseNamespace(text)
+    const classes = parseClasses(text)
+    return parseMethods(text, classes, namespaceName)
 }
 
 function parseNamespace(text: string): string | undefined {

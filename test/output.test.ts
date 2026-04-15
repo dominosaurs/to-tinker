@@ -3,11 +3,11 @@ import * as vscode from 'vscode'
 import { Output } from '../src/output'
 
 describe('output', () => {
-    it('opens markdown preview only once', async () => {
+    it('reuses same webview panel across updates', async () => {
         const output = new Output()
-        const executeCommand = vi.mocked(vscode.commands.executeCommand)
+        const createWebviewPanel = vi.mocked(vscode.window.createWebviewPanel)
 
-        executeCommand.mockClear()
+        createWebviewPanel.mockClear()
 
         await output.show({
             status: 'running',
@@ -30,10 +30,6 @@ describe('output', () => {
             },
         })
 
-        expect(executeCommand).toHaveBeenCalledTimes(1)
-        expect(executeCommand).toHaveBeenCalledWith(
-            'markdown.showPreviewToSide',
-            expect.anything(),
-        )
+        expect(createWebviewPanel).toHaveBeenCalledTimes(1)
     })
 })

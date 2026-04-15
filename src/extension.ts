@@ -1,4 +1,5 @@
 import * as vscode from 'vscode'
+import { ToTinkerCodeLensProvider } from './codeLens'
 import { COMMANDS, type RunKind } from './commands'
 import { getConfig } from './config'
 import {
@@ -7,6 +8,7 @@ import {
     findMethodAtPosition,
     type MethodInfo,
 } from './extraction'
+import { Log } from './log'
 import { Output } from './output'
 import { promptForParameter } from './php'
 import { executeTinker, RunRegistry, renderExecutionReport } from './runner'
@@ -14,10 +16,13 @@ import { resolveLaravelWorkspace } from './workspace'
 import { buildMethodPayload, buildTinkerPayload } from './wrapper'
 
 const output = new Output()
+const log = new Log()
 const registry = new RunRegistry()
+const codeLensProvider = new ToTinkerCodeLensProvider()
 
 export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
+    codeLensProvider.register(context)
 
     const register = (
         command: string,
@@ -25,11 +30,29 @@ export function activate(context: vscode.ExtensionContext): void {
         sandboxOverride?: boolean,
     ): void => {
         context.subscriptions.push(
-            vscode.commands.registerCommand(command, async () => {
-                await run(kind, sandboxOverride)
-            }),
+            vscode.commands.registerCommand(
+                command,
+                async (...args: unknown[]) => {
+                    await executeRun(kind, sandboxOverride, args[0])
+                },
+            ),
         )
     }
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(COMMANDS.runPrimary, async () => {
+            await runPrimary()
+        }),
+        vscode.commands.registerCommand(COMMANDS.showLogs, async () => {
+            log.show()
+        }),
+        vscode.commands.registerCommand(
+            COMMANDS.runMethodAt,
+            async (uri: vscode.Uri, position: vscode.Position) => {
+                await executeRun('method', undefined, { position, uri })
+            },
+        ),
+    )
 
     register(COMMANDS.runSelection, 'selection')
     register(COMMANDS.runSelectionDisableSandbox, 'selection', false)
@@ -41,6 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push({
         dispose() {
             registry.killAll()
+            log.dispose()
             output.dispose()
         },
     })
@@ -48,12 +72,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
     registry.killAll()
+    log.dispose()
     output.dispose()
 }
 
-async function run(kind: RunKind, sandboxOverride?: boolean): Promise<void> {
+async function executeRun(
+    kind: RunKind,
+    sandboxOverride?: boolean,
+    target?: unknown,
+): Promise<void> {
     try {
-        const editor = vscode.window.activeTextEditor
+        const editor = resolveEditor(target)
         if (!editor) {
             throw new Error('Open a PHP editor first.')
         }
@@ -94,7 +123,10 @@ async function run(kind: RunKind, sandboxOverride?: boolean): Promise<void> {
                 })
                 break
             case 'method':
-                method = findMethodAtPosition(document, editor.selection.active)
+                method = findMethodAtPosition(
+                    document,
+                    resolveMethodPosition(editor, target),
+                )
                 payload = buildMethodPayload({
                     fakeStorage: config.sandbox.fakeStorage,
                     filePath: document.uri.fsPath,
@@ -118,6 +150,7 @@ async function run(kind: RunKind, sandboxOverride?: boolean): Promise<void> {
             },
             output,
             registry,
+            log,
         )
 
         await renderExecutionReport(
@@ -138,6 +171,24 @@ async function run(kind: RunKind, sandboxOverride?: boolean): Promise<void> {
     }
 }
 
+async function runPrimary(): Promise<void> {
+    const editor = vscode.window.activeTextEditor
+    if (!editor) {
+        void vscode.window.showErrorMessage('Open a PHP editor first.')
+        return
+    }
+
+    if (editor.selections.length !== 1) {
+        void vscode.window.showErrorMessage(
+            'Multiple selections are not supported.',
+        )
+        return
+    }
+
+    const kind = editor.selection.isEmpty ? 'file' : 'selection'
+    await executeRun(kind, undefined, undefined)
+}
+
 async function resolveMethodArguments(
     method: MethodInfo,
 ): Promise<Record<number, string>> {
@@ -156,4 +207,44 @@ async function resolveMethodArguments(
     }
 
     return argumentsList
+}
+
+function resolveEditor(target: unknown): vscode.TextEditor | undefined {
+    if (
+        target &&
+        typeof target === 'object' &&
+        'uri' in target &&
+        target.uri &&
+        typeof target.uri === 'object' &&
+        'toString' in target.uri
+    ) {
+        const uri = target.uri as { toString(): string }
+
+        return (
+            vscode.window.visibleTextEditors.find(
+                editor => editor.document.uri.toString() === uri.toString(),
+            ) ?? vscode.window.activeTextEditor
+        )
+    }
+
+    return vscode.window.activeTextEditor
+}
+
+function resolveMethodPosition(
+    editor: vscode.TextEditor,
+    target: unknown,
+): vscode.Position {
+    if (
+        target &&
+        typeof target === 'object' &&
+        'position' in target &&
+        target.position &&
+        typeof target.position === 'object' &&
+        'line' in target.position &&
+        'character' in target.position
+    ) {
+        return target.position as vscode.Position
+    }
+
+    return editor.selection.active
 }

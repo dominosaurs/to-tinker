@@ -4,6 +4,7 @@ import { stripAnsi } from './ansi'
 import type { RunKind } from './commands'
 import { getConfig } from './config'
 import type { MethodInfo } from './extraction'
+import type { Log } from './log'
 import type { Output, RunSummary } from './output'
 import { resolvePhpExecutable } from './php'
 import type { LaravelWorkspace } from './workspace'
@@ -51,8 +52,12 @@ export async function executeTinker(
     request: ExecutionRequest,
     output: Output,
     registry: RunRegistry,
+    log: Log,
 ): Promise<ExecutionResult> {
     if (registry.has(request.workspace.rootPath)) {
+        log.info(
+            `run blocked: active process for ${request.workspace.rootPath}`,
+        )
         throw new Error(
             `A To-Tinker run is already active for ${request.workspace.rootPath}.`,
         )
@@ -61,6 +66,9 @@ export async function executeTinker(
     const config = getConfig()
     const phpExecutable = resolvePhpExecutable()
     const timeoutMs = config.timeoutSeconds * 1000
+    log.info(
+        `spawn start kind=${request.kind} sandbox=${request.sandboxEnabled ? 'on' : 'off'} root=${request.workspace.rootPath}`,
+    )
     await output.show({
         diagnostics: `root=${request.workspace.rootPath}`,
         status: 'running',
@@ -70,15 +78,22 @@ export async function executeTinker(
     return await new Promise<ExecutionResult>((resolve, reject) => {
         const child = spawn(
             phpExecutable,
-            [request.workspace.artisanPath, 'tinker'],
+            [
+                request.workspace.artisanPath,
+                'tinker',
+                '--no-ansi',
+                '--execute',
+                request.payload,
+            ],
             {
                 cwd: request.workspace.rootPath,
                 shell: false,
-                stdio: ['pipe', 'pipe', 'pipe'],
+                stdio: ['ignore', 'pipe', 'pipe'],
             },
         )
 
         registry.start(request.workspace.rootPath, child)
+        log.info(`spawned pid=${child.pid ?? 'unknown'}`)
 
         let stdout = ''
         let stderr = ''
@@ -93,11 +108,15 @@ export async function executeTinker(
             finished = true
             clearTimeout(timeoutHandle)
             registry.end(request.workspace.rootPath)
+            log.info(`run complete pid=${child.pid ?? 'unknown'}`)
             handler()
         }
 
         const timeoutHandle = setTimeout(() => {
             timedOut = true
+            log.info(
+                `timeout pid=${child.pid ?? 'unknown'} after ${timeoutMs}ms`,
+            )
             child.kill('SIGKILL')
         }, timeoutMs)
 
@@ -110,10 +129,13 @@ export async function executeTinker(
         })
 
         child.on('error', error => {
+            log.info(`process error: ${error.message}`)
             complete(() => reject(error))
         })
-
-        child.on('close', () => {
+        child.on('close', code => {
+            log.info(
+                `process close pid=${child.pid ?? 'unknown'} code=${code ?? 'null'} stdout=${stdout.length} stderr=${stderr.length}`,
+            )
             complete(() =>
                 resolve({
                     stderr: stripAnsi(stderr),
@@ -122,9 +144,6 @@ export async function executeTinker(
                 }),
             )
         })
-
-        child.stdin.write(request.payload)
-        child.stdin.end()
     })
 }
 

@@ -9,6 +9,7 @@ export interface ExtensionConfig {
     phpPath: string | undefined
     timeoutSeconds: number
     clearOutputOnRun: boolean
+    codeLensEnabled: boolean
     sandbox: SandboxConfig
 }
 
@@ -17,6 +18,7 @@ export function getConfig(): ExtensionConfig {
 
     return {
         clearOutputOnRun: config.get<boolean>('clearOutputOnRun', true),
+        codeLensEnabled: config.get<boolean>('codeLens.enabled', true),
         phpPath: normalizeOptionalString(config.get<string>('phpPath')),
         sandbox: {
             defaultEnabled: config.get<boolean>('sandbox.defaultEnabled', true),

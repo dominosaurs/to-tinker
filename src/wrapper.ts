@@ -20,7 +20,21 @@ export function buildTinkerPayload(options: WrapperOptions): string {
 
     return [
         ...buildSandboxPrelude(options.sandboxEnabled, options.fakeStorage),
-        options.selectionOrFileCode.trim(),
+        `$__toTinkerUserCode = base64_decode(${quoteBase64(options.selectionOrFileCode.trim())});`,
+        '$__toTinkerResult = null;',
+        '$__toTinkerException = null;',
+        "$__toTinkerBufferedOutput = '';",
+        '$__toTinkerElapsedStart = microtime(true);',
+        'try {',
+        '    ob_start();',
+        '    $__toTinkerResult = eval($__toTinkerUserCode);',
+        '    $__toTinkerBufferedOutput = ob_get_clean();',
+        '} catch (Throwable $__toTinkerCaught) {',
+        '    $__toTinkerBufferedOutput = ob_get_clean();',
+        '    $__toTinkerException = $__toTinkerCaught;',
+        '}',
+        '$__toTinkerElapsedMs = (int) round((microtime(true) - $__toTinkerElapsedStart) * 1000);',
+        renderResultPhp(true),
         '',
     ].join('\n')
 }
@@ -81,7 +95,7 @@ export function buildMethodPayload(options: WrapperOptions): string {
         '    $__toTinkerException = $__toTinkerCaught;',
         '}',
         '$__toTinkerElapsedMs = (int) round((microtime(true) - $__toTinkerElapsedStart) * 1000);',
-        renderResultPhp(),
+        renderResultPhp(false),
         '',
     ].join('\n')
 }
@@ -123,28 +137,58 @@ function buildSandboxPrelude(enabled: boolean, fakeStorage: boolean): string[] {
     ]
 }
 
-function renderResultPhp(): string {
+function renderResultPhp(includeBufferedOutput: boolean): string {
     return [
         'if ($__toTinkerException) {',
         '    echo "__TO_TINKER_ERROR__\\n";',
+        ...(includeBufferedOutput
+            ? [
+                  "    if ($__toTinkerBufferedOutput !== '') {",
+                  '        echo $__toTinkerBufferedOutput;',
+                  '        echo "\\n";',
+                  '    }',
+              ]
+            : []),
         '    echo $__toTinkerException;',
         '    echo "\\n__TO_TINKER_DIAGNOSTICS__\\n";',
         '    echo \'elapsed_ms=\' . $__toTinkerElapsedMs . "\\n";',
         '} else {',
         '    echo "__TO_TINKER_RESULT__\\n";',
-        '    if (is_null($__toTinkerResult) || is_scalar($__toTinkerResult)) {',
-        '        echo var_export($__toTinkerResult, true) . "\\n";',
-        '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Contracts\\Support\\Arrayable) {',
-        '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
-        '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
-        '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
-        '    } elseif (is_array($__toTinkerResult)) {',
-        '        print_r($__toTinkerResult);',
-        '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
-        '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
-        '    } else {',
-        '        print_r($__toTinkerResult);',
-        '    }',
+        ...(includeBufferedOutput
+            ? [
+                  "    if ($__toTinkerBufferedOutput !== '') {",
+                  '        echo $__toTinkerBufferedOutput;',
+                  '    } elseif (',
+                  '        is_null($__toTinkerResult) || is_scalar($__toTinkerResult)',
+                  '    ) {',
+                  '        echo var_export($__toTinkerResult, true) . "\\n";',
+                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Contracts\\Support\\Arrayable) {',
+                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
+                  '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
+                  '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
+                  '    } elseif (is_array($__toTinkerResult)) {',
+                  '        print_r($__toTinkerResult);',
+                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
+                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
+                  '    } else {',
+                  '        print_r($__toTinkerResult);',
+                  '    }',
+              ]
+            : [
+                  '    if (is_null($__toTinkerResult) || is_scalar($__toTinkerResult)) {',
+                  '        echo var_export($__toTinkerResult, true) . "\\n";',
+                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Contracts\\Support\\Arrayable) {',
+                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
+                  '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
+                  '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
+                  '    } elseif (is_array($__toTinkerResult)) {',
+                  '        print_r($__toTinkerResult);',
+                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
+                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
+                  '    } else {',
+                  '        print_r($__toTinkerResult);',
+                  '    }',
+              ]),
         '    echo "\\n__TO_TINKER_DIAGNOSTICS__\\n";',
         '    echo \'elapsed_ms=\' . $__toTinkerElapsedMs . "\\n";',
         '}',
@@ -153,6 +197,10 @@ function renderResultPhp(): string {
 
 function quote(value: string): string {
     return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`
+}
+
+function quoteBase64(value: string): string {
+    return quote(Buffer.from(value, 'utf8').toString('base64'))
 }
 
 function mapLiteral(values: Record<number, string>): string {

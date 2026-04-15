@@ -12,7 +12,10 @@ describe('wrapper', () => {
 
         expect(payload).toContain('Mail::fake();')
         expect(payload).toContain('DB::connection')
-        expect(payload).toContain('return 42;')
+        expect(payload).toContain(
+            "$__toTinkerUserCode = base64_decode('cmV0dXJuIDQyOw==');",
+        )
+        expect(payload).toContain('eval($__toTinkerUserCode);')
         expect(payload.startsWith('<?php')).toBe(false)
     })
 

@@ -1,12 +1,16 @@
 {
     "$schema": "https://json.schemastore.org/package.json",
     "activationEvents": [
+        "onLanguage:php",
+        "onCommand:toTinker.runPrimary",
         "onCommand:toTinker.runSelection",
         "onCommand:toTinker.runSelectionDisableSandbox",
         "onCommand:toTinker.runFile",
         "onCommand:toTinker.runFileDisableSandbox",
         "onCommand:toTinker.runMethod",
-        "onCommand:toTinker.runMethodDisableSandbox"
+        "onCommand:toTinker.runMethodDisableSandbox",
+        "onCommand:toTinker.runMethodAt",
+        "onCommand:toTinker.showLogs"
     ],
     "categories": [
         "Other"
@@ -15,15 +19,27 @@
         "commands": [
             {
                 "category": "To-Tinker",
+                "command": "toTinker.showLogs",
+                "title": "To-Tinker: Show Logs"
+            },
+            {
+                "category": "To-Tinker",
+                "command": "toTinker.runPrimary",
+                "enablement": "editorLangId == php",
+                "icon": "$(play)",
+                "title": "To-Tinker"
+            },
+            {
+                "category": "To-Tinker",
                 "command": "toTinker.runSelection",
                 "enablement": "editorLangId == php",
-                "title": "Run Selection"
+                "title": "To-Tinker"
             },
             {
                 "category": "To-Tinker",
                 "command": "toTinker.runSelectionDisableSandbox",
                 "enablement": "editorLangId == php",
-                "title": "Run Selection (Disable Sandbox)"
+                "title": "To-Tinker (Disable Sandbox)"
             },
             {
                 "category": "To-Tinker",
@@ -57,6 +73,11 @@
                     "description": "Clear the To-Tinker output channel before each run.",
                     "type": "boolean"
                 },
+                "toTinker.codeLens.enabled": {
+                    "default": true,
+                    "description": "Show To-Tinker CodeLens above supported PHP methods.",
+                    "type": "boolean"
+                },
                 "toTinker.phpPath": {
                     "default": "",
                     "description": "Path to the PHP executable. Leave empty to use php from PATH.",
@@ -80,6 +101,35 @@
                 }
             },
             "title": "To-Tinker"
+        },
+        "keybindings": [
+            {
+                "command": "toTinker.runPrimary",
+                "key": "ctrl+r",
+                "mac": "cmd+r",
+                "when": "editorTextFocus && editorLangId == php"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "toTinker.runSelection",
+                    "group": "navigation@10",
+                    "when": "editorLangId == php && editorHasSelection"
+                },
+                {
+                    "command": "toTinker.runSelectionDisableSandbox",
+                    "group": "navigation@11",
+                    "when": "editorLangId == php && editorHasSelection"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "toTinker.runPrimary",
+                    "group": "navigation",
+                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
+                }
+            ]
         }
     },
     "description": "Run Laravel PHP selections, files, and methods through artisan tinker from VS Code.",
