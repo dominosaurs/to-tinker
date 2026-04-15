@@ -15,6 +15,9 @@ export interface ExecutionRequest {
     payload: string
     filePath: string
     sandboxEnabled: boolean
+    sourceCode?: string
+    sourceLineStart?: number
+    sourceLineEnd?: number
     method?: MethodInfo
 }
 
@@ -224,5 +227,8 @@ function buildSummary(request: ExecutionRequest): RunSummary {
         methodName: request.method?.methodName,
         rootPath: request.workspace.rootPath,
         sandboxEnabled: request.sandboxEnabled,
+        sourceCode: request.sourceCode,
+        sourceLineEnd: request.sourceLineEnd,
+        sourceLineStart: request.sourceLineStart,
     }
 }

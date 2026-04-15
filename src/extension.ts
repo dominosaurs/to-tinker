@@ -98,28 +98,34 @@ async function executeRun(
 
         let method: MethodInfo | undefined
         let payload: string
+        let sourceCode: string | undefined
+        let sourceLineStart: number | undefined
+        let sourceLineEnd: number | undefined
 
         switch (kind) {
             case 'selection':
                 if (editor.selections.length !== 1) {
                     throw new Error('Multiple selections are not supported.')
                 }
+                sourceCode = extractSelection(document, editor.selection)
+                sourceLineStart = editor.selection.start.line + 1
+                sourceLineEnd = editor.selection.end.line + 1
                 payload = buildTinkerPayload({
                     fakeStorage: config.sandbox.fakeStorage,
                     filePath: document.uri.fsPath,
                     sandboxEnabled,
-                    selectionOrFileCode: extractSelection(
-                        document,
-                        editor.selection,
-                    ),
+                    selectionOrFileCode: sourceCode,
                 })
                 break
             case 'file':
+                sourceCode = extractFile(document)
+                sourceLineStart = 1
+                sourceLineEnd = document.lineCount
                 payload = buildTinkerPayload({
                     fakeStorage: config.sandbox.fakeStorage,
                     filePath: document.uri.fsPath,
                     sandboxEnabled,
-                    selectionOrFileCode: extractFile(document),
+                    selectionOrFileCode: sourceCode,
                 })
                 break
             case 'method':
@@ -127,6 +133,11 @@ async function executeRun(
                     document,
                     resolveMethodPosition(editor, target),
                 )
+                sourceCode = document
+                    .getText()
+                    .slice(method.start, method.end + 1)
+                sourceLineStart = document.positionAt(method.start).line + 1
+                sourceLineEnd = document.positionAt(method.end).line + 1
                 payload = buildMethodPayload({
                     fakeStorage: config.sandbox.fakeStorage,
                     filePath: document.uri.fsPath,
@@ -146,6 +157,9 @@ async function executeRun(
                 method,
                 payload,
                 sandboxEnabled,
+                sourceCode,
+                sourceLineEnd,
+                sourceLineStart,
                 workspace,
             },
             output,
@@ -160,6 +174,9 @@ async function executeRun(
                 method,
                 payload,
                 sandboxEnabled,
+                sourceCode,
+                sourceLineEnd,
+                sourceLineStart,
                 workspace,
             },
             result,

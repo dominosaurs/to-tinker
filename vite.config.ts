@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
     build: {
-        emptyOutDir: false,
+        emptyOutDir: true,
         lib: {
             entry: 'src/extension.ts',
             fileName: () => 'extension.js',
@@ -13,9 +13,10 @@ export default defineConfig({
             external: ['vscode', 'node:child_process', 'node:fs', 'node:path'],
             output: {
                 exports: 'named',
+                inlineDynamicImports: true,
             },
         },
-        sourcemap: true,
+        sourcemap: false,
         target: 'node20',
     },
     test: {
