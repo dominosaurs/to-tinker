@@ -34,8 +34,8 @@
                 "command": "toTinker.runPrimary",
                 "enablement": "editorLangId == php",
                 "icon": {
-                    "dark": "assets/images/icon.jpg",
-                    "light": "assets/images/icon.jpg"
+                    "dark": "assets/images/icon32.png",
+                    "light": "assets/images/icon32.png"
                 },
                 "title": "To Tinker: Run"
             },
@@ -188,14 +188,15 @@
         "vscode": "^1.99.0"
     },
     "files": [
-        "assets/images/icon.jpg",
+        "assets/images/icon256.png",
+        "assets/images/icon32.png",
         "out/**",
         "LICENSE",
         "package.json",
         "README.md"
     ],
     "homepage": "https://github.com/dominosaurs/to-tinker#readme",
-    "icon": "assets/images/icon.jpg",
+    "icon": "assets/images/icon256.png",
     "keywords": [
         "laravel",
         "laravel tinker",
