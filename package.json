@@ -149,10 +149,12 @@
         "vscode": "^1.99.0"
     },
     "files": [
+        "assets/images/icon.jpg",
         "out/**",
         "README.md",
         "package.json"
     ],
+    "icon": "assets/images/icon.jpg",
     "keywords": [
         "laravel",
         "php",
