@@ -5,6 +5,7 @@ export interface WrapperOptions {
     fakeStorage: boolean
     filePath: string
     method?: MethodInfo
+    smartCapture?: boolean
     selectionOrFileCode?: string
     promptedArguments?: Record<number, string>
 }
@@ -18,9 +19,13 @@ export function buildTinkerPayload(options: WrapperOptions): string {
         throw new Error('Missing PHP payload.')
     }
 
+    const userCode = options.smartCapture
+        ? prepareSmartCaptureCode(options.selectionOrFileCode)
+        : options.selectionOrFileCode.trim()
+
     return [
         ...buildSandboxPrelude(options.sandboxEnabled, options.fakeStorage),
-        `$__toTinkerUserCode = base64_decode(${quoteBase64(options.selectionOrFileCode.trim())});`,
+        `$__toTinkerUserCode = base64_decode(${quoteBase64(userCode)});`,
         '$__toTinkerResult = null;',
         '$__toTinkerException = null;',
         "$__toTinkerBufferedOutput = '';",
@@ -158,41 +163,459 @@ function renderResultPhp(includeBufferedOutput: boolean): string {
             ? [
                   "    if ($__toTinkerBufferedOutput !== '') {",
                   '        echo $__toTinkerBufferedOutput;',
-                  '    } elseif (',
-                  '        is_null($__toTinkerResult) || is_scalar($__toTinkerResult)',
-                  '    ) {',
-                  '        echo var_export($__toTinkerResult, true) . "\\n";',
-                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Contracts\\Support\\Arrayable) {',
-                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
-                  '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
-                  '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
-                  '    } elseif (is_array($__toTinkerResult)) {',
-                  '        print_r($__toTinkerResult);',
-                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
-                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
-                  '    } else {',
-                  '        print_r($__toTinkerResult);',
+                  '        if (!str_ends_with($__toTinkerBufferedOutput, "\\n")) {',
+                  '            echo "\\n";',
+                  '        }',
                   '    }',
+                  ...renderValuePhp(
+                      "    if ($__toTinkerBufferedOutput !== '') {",
+                  ),
               ]
-            : [
-                  '    if (is_null($__toTinkerResult) || is_scalar($__toTinkerResult)) {',
-                  '        echo var_export($__toTinkerResult, true) . "\\n";',
-                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Contracts\\Support\\Arrayable) {',
-                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
-                  '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
-                  '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
-                  '    } elseif (is_array($__toTinkerResult)) {',
-                  '        print_r($__toTinkerResult);',
-                  '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
-                  '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
-                  '    } else {',
-                  '        print_r($__toTinkerResult);',
-                  '    }',
-              ]),
+            : [...renderValuePhp('    if (true) {')]),
         '    echo "\\n__TO_TINKER_DIAGNOSTICS__\\n";',
         '    echo \'elapsed_ms=\' . $__toTinkerElapsedMs . "\\n";',
         '}',
     ].join('\n')
+}
+
+function renderValuePhp(ifLine: string): string[] {
+    return [
+        `${ifLine}`,
+        '    }',
+        '    if (is_null($__toTinkerResult) || is_scalar($__toTinkerResult)) {',
+        '        echo var_export($__toTinkerResult, true) . "\\n";',
+        '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Contracts\\Support\\Arrayable) {',
+        '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
+        '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
+        '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
+        '    } elseif (is_array($__toTinkerResult)) {',
+        '        print_r($__toTinkerResult);',
+        '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
+        '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
+        '    } else {',
+        '        print_r($__toTinkerResult);',
+        '    }',
+    ]
+}
+
+function prepareSmartCaptureCode(source: string): string {
+    const trimmed = source.trim()
+    if (!trimmed) {
+        throw new Error(
+            'Selection is not a complete PHP statement or standalone expression. Select a full statement, or a complete expression like $user->email.',
+        )
+    }
+
+    const { statements, trailing } = splitTopLevelStatements(trimmed)
+
+    if (statements.length === 0) {
+        return normalizeSingleStatementOrExpression(trimmed)
+    }
+
+    if (!trailing) {
+        const normalizedStatements = [...statements]
+        const lastStatement = normalizedStatements.at(-1)
+
+        if (lastStatement && isCapturableExpression(lastStatement)) {
+            normalizedStatements[normalizedStatements.length - 1] =
+                `return ${stripTrailingSemicolon(lastStatement)};`
+        }
+
+        return normalizedStatements.join('\n')
+    }
+
+    if (isStandaloneExpression(trailing)) {
+        return [
+            ...statements,
+            `return ${stripTrailingSemicolon(trailing)};`,
+        ].join('\n')
+    }
+
+    if (isObviouslyUnsupportedFragment(trailing)) {
+        throw new Error(
+            'Selection is not a complete PHP statement or standalone expression. Select a full statement, or a complete expression like $user->email.',
+        )
+    }
+
+    return [...statements, ensureTrailingSemicolon(trailing)].join('\n')
+}
+
+function normalizeSingleStatementOrExpression(source: string): string {
+    if (
+        isStandaloneExpression(source) &&
+        !hasTopLevelAssignment(stripTrailingSemicolon(source))
+    ) {
+        return `return ${stripTrailingSemicolon(source)};`
+    }
+
+    if (isObviouslyUnsupportedFragment(source)) {
+        throw new Error(
+            'Selection is not a complete PHP statement or standalone expression. Select a full statement, or a complete expression like $user->email.',
+        )
+    }
+
+    return ensureTrailingSemicolon(source)
+}
+
+function splitTopLevelStatements(source: string): {
+    statements: string[]
+    trailing: string
+} {
+    const statements: string[] = []
+    let current = ''
+    let parenDepth = 0
+    let bracketDepth = 0
+    let braceDepth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    let inLineComment = false
+    let inBlockComment = false
+
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const next = source[index + 1]
+        const previous = source[index - 1]
+
+        current += character
+
+        if (inLineComment) {
+            if (character === '\n') {
+                inLineComment = false
+            }
+            continue
+        }
+
+        if (inBlockComment) {
+            if (previous === '*' && character === '/') {
+                inBlockComment = false
+            }
+            continue
+        }
+
+        if (!inSingleQuote && !inDoubleQuote) {
+            if (character === '/' && next === '/') {
+                inLineComment = true
+                continue
+            }
+
+            if (character === '/' && next === '*') {
+                inBlockComment = true
+                continue
+            }
+        }
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '(') {
+            parenDepth += 1
+        } else if (character === ')') {
+            parenDepth = Math.max(0, parenDepth - 1)
+        } else if (character === '[') {
+            bracketDepth += 1
+        } else if (character === ']') {
+            bracketDepth = Math.max(0, bracketDepth - 1)
+        } else if (character === '{') {
+            braceDepth += 1
+        } else if (character === '}') {
+            braceDepth = Math.max(0, braceDepth - 1)
+        }
+
+        if (
+            character === ';' &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            braceDepth === 0
+        ) {
+            const statement = current.trim()
+            if (statement) {
+                statements.push(statement)
+            }
+            current = ''
+        }
+    }
+
+    return {
+        statements,
+        trailing: current.trim(),
+    }
+}
+
+function isStandaloneExpression(source: string): boolean {
+    const trimmed = stripTrailingSemicolon(source).trim()
+    if (!trimmed || isObviouslyUnsupportedFragment(trimmed)) {
+        return false
+    }
+
+    if (
+        /^(if|foreach|for|while|switch|try|catch|finally|function|fn|class|trait|interface|enum|namespace|use|return|echo|print|throw|break|continue|unset|global|static|public|protected|private|final|abstract|readonly|declare|do)\b/.test(
+            trimmed,
+        )
+    ) {
+        return false
+    }
+
+    return true
+}
+
+function isCapturableExpression(source: string): boolean {
+    return (
+        isStandaloneExpression(source) &&
+        !hasTopLevelAssignment(stripTrailingSemicolon(source))
+    )
+}
+
+function isObviouslyUnsupportedFragment(source: string): boolean {
+    const trimmed = stripTrailingSemicolon(source).trim()
+    if (!trimmed) {
+        return true
+    }
+
+    if (!hasBalancedStructure(trimmed)) {
+        return true
+    }
+
+    if (hasTopLevelDoubleArrow(trimmed)) {
+        return true
+    }
+
+    return /(?:=>|,|::|->|=|:|\{)$/u.test(trimmed)
+}
+
+function hasBalancedStructure(source: string): boolean {
+    let parenDepth = 0
+    let bracketDepth = 0
+    let braceDepth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const previous = source[index - 1]
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '(') {
+            parenDepth += 1
+        } else if (character === ')') {
+            parenDepth -= 1
+        } else if (character === '[') {
+            bracketDepth += 1
+        } else if (character === ']') {
+            bracketDepth -= 1
+        } else if (character === '{') {
+            braceDepth += 1
+        } else if (character === '}') {
+            braceDepth -= 1
+        }
+
+        if (parenDepth < 0 || bracketDepth < 0 || braceDepth < 0) {
+            return false
+        }
+    }
+
+    return (
+        !inSingleQuote &&
+        !inDoubleQuote &&
+        parenDepth === 0 &&
+        bracketDepth === 0 &&
+        braceDepth === 0
+    )
+}
+
+function hasTopLevelAssignment(source: string): boolean {
+    let parenDepth = 0
+    let bracketDepth = 0
+    let braceDepth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const previous = source[index - 1]
+        const next = source[index + 1]
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '(') {
+            parenDepth += 1
+            continue
+        }
+
+        if (character === ')') {
+            parenDepth = Math.max(0, parenDepth - 1)
+            continue
+        }
+
+        if (character === '[') {
+            bracketDepth += 1
+            continue
+        }
+
+        if (character === ']') {
+            bracketDepth = Math.max(0, bracketDepth - 1)
+            continue
+        }
+
+        if (character === '{') {
+            braceDepth += 1
+            continue
+        }
+
+        if (character === '}') {
+            braceDepth = Math.max(0, braceDepth - 1)
+            continue
+        }
+
+        if (
+            character === '=' &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            braceDepth === 0 &&
+            next !== '>' &&
+            previous !== '=' &&
+            previous !== '!' &&
+            previous !== '<' &&
+            previous !== '>' &&
+            previous !== '+' &&
+            previous !== '-' &&
+            previous !== '*' &&
+            previous !== '/' &&
+            previous !== '%' &&
+            previous !== '.' &&
+            previous !== '&' &&
+            previous !== '|' &&
+            previous !== '^' &&
+            previous !== '?'
+        ) {
+            return true
+        }
+    }
+
+    return false
+}
+
+function hasTopLevelDoubleArrow(source: string): boolean {
+    let parenDepth = 0
+    let bracketDepth = 0
+    let braceDepth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const previous = source[index - 1]
+        const next = source[index + 1]
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '(') {
+            parenDepth += 1
+            continue
+        }
+
+        if (character === ')') {
+            parenDepth = Math.max(0, parenDepth - 1)
+            continue
+        }
+
+        if (character === '[') {
+            bracketDepth += 1
+            continue
+        }
+
+        if (character === ']') {
+            bracketDepth = Math.max(0, bracketDepth - 1)
+            continue
+        }
+
+        if (character === '{') {
+            braceDepth += 1
+            continue
+        }
+
+        if (character === '}') {
+            braceDepth = Math.max(0, braceDepth - 1)
+            continue
+        }
+
+        if (
+            character === '=' &&
+            previous === '>' &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            braceDepth === 0
+        ) {
+            return true
+        }
+
+        if (
+            character === '=' &&
+            next === '>' &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            braceDepth === 0
+        ) {
+            return true
+        }
+    }
+
+    return false
+}
+
+function ensureTrailingSemicolon(source: string): string {
+    return `${stripTrailingSemicolon(source)};`
+}
+
+function stripTrailingSemicolon(source: string): string {
+    return source.trim().replace(/;+$/u, '').trim()
 }
 
 function quote(value: string): string {

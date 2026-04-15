@@ -109,6 +109,7 @@ async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
                     filePath: document.uri.fsPath,
                     sandboxEnabled,
                     selectionOrFileCode: sourceCode,
+                    smartCapture: true,
                 })
                 break
             case 'file':
@@ -132,6 +133,7 @@ async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
                     filePath: document.uri.fsPath,
                     sandboxEnabled,
                     selectionOrFileCode: sourceCode,
+                    smartCapture: true,
                 })
                 break
             }
