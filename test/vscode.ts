@@ -74,6 +74,7 @@ export const window = {
         webview: { html: '' },
     })),
     showErrorMessage: vi.fn(),
+    showInformationMessage: vi.fn(),
     showInputBox: vi.fn(),
     visibleTextEditors: [] as unknown[],
 }
@@ -81,12 +82,14 @@ export const window = {
 export const workspace = {
     getConfiguration: vi.fn(() => ({
         get: (_key: string, defaultValue?: unknown) => defaultValue,
+        update: vi.fn(),
     })),
     getWorkspaceFolder: vi.fn(),
     onDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
     onDidChangeTextDocument: vi.fn(() => ({ dispose: vi.fn() })),
     openTextDocument: vi.fn(async (uri: { fsPath: string }) => ({ uri })),
     registerTextDocumentContentProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    workspaceFolders: [] as unknown[],
 }
 
 export const Uri = {
@@ -95,3 +98,7 @@ export const Uri = {
 }
 
 export const ViewColumn = { Beside: 2 }
+export const ConfigurationTarget = {
+    Global: 1,
+    Workspace: 2,
+}

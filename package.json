@@ -4,13 +4,11 @@
         "onLanguage:php",
         "onCommand:toTinker.runPrimary",
         "onCommand:toTinker.runSelection",
-        "onCommand:toTinker.runSelectionDisableSandbox",
         "onCommand:toTinker.runFile",
-        "onCommand:toTinker.runFileDisableSandbox",
         "onCommand:toTinker.runMethod",
-        "onCommand:toTinker.runMethodDisableSandbox",
         "onCommand:toTinker.runMethodAt",
-        "onCommand:toTinker.showLogs"
+        "onCommand:toTinker.showLogs",
+        "onCommand:toTinker.toggleSandbox"
     ],
     "author": {
         "name": "dominosaurs",
@@ -47,21 +45,9 @@
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runSelectionDisableSandbox",
-                "enablement": "editorLangId == php",
-                "title": "To Tinker (Disable Sandbox)"
-            },
-            {
-                "category": "To Tinker",
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
                 "title": "Run File"
-            },
-            {
-                "category": "To Tinker",
-                "command": "toTinker.runFileDisableSandbox",
-                "enablement": "editorLangId == php",
-                "title": "Run File (Disable Sandbox)"
             },
             {
                 "category": "To Tinker",
@@ -71,9 +57,8 @@
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runMethodDisableSandbox",
-                "enablement": "editorLangId == php",
-                "title": "Run Method (Disable Sandbox)"
+                "command": "toTinker.toggleSandbox",
+                "title": "Toggle Sandbox"
             }
         ],
         "configuration": {
@@ -120,11 +105,6 @@
                 {
                     "command": "toTinker.runSelection",
                     "group": "navigation@10",
-                    "when": "editorLangId == php && editorHasSelection"
-                },
-                {
-                    "command": "toTinker.runSelectionDisableSandbox",
-                    "group": "navigation@11",
                     "when": "editorLangId == php && editorHasSelection"
                 }
             ],

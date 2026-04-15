@@ -1,7 +1,7 @@
 import * as vscode from 'vscode'
 import { ToTinkerCodeLensProvider } from './code-lens'
 import { COMMANDS, type RunKind } from './commands'
-import { getConfig } from './config'
+import { getConfig, setSandboxDefaultEnabled } from './config'
 import {
     extractFile,
     extractSelection,
@@ -24,16 +24,12 @@ export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
     codeLensProvider.register(context)
 
-    const register = (
-        command: string,
-        kind: RunKind,
-        sandboxOverride?: boolean,
-    ): void => {
+    const register = (command: string, kind: RunKind): void => {
         context.subscriptions.push(
             vscode.commands.registerCommand(
                 command,
                 async (...args: unknown[]) => {
-                    await executeRun(kind, sandboxOverride, args[0])
+                    await executeRun(kind, args[0])
                 },
             ),
         )
@@ -46,20 +42,20 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand(COMMANDS.showLogs, async () => {
             log.show()
         }),
+        vscode.commands.registerCommand(COMMANDS.toggleSandbox, async () => {
+            await toggleSandbox()
+        }),
         vscode.commands.registerCommand(
             COMMANDS.runMethodAt,
             async (uri: vscode.Uri, position: vscode.Position) => {
-                await executeRun('method', undefined, { position, uri })
+                await executeRun('method', { position, uri })
             },
         ),
     )
 
     register(COMMANDS.runSelection, 'selection')
-    register(COMMANDS.runSelectionDisableSandbox, 'selection', false)
     register(COMMANDS.runFile, 'file')
-    register(COMMANDS.runFileDisableSandbox, 'file', false)
     register(COMMANDS.runMethod, 'method')
-    register(COMMANDS.runMethodDisableSandbox, 'method', false)
 
     context.subscriptions.push({
         dispose() {
@@ -76,11 +72,7 @@ export function deactivate(): void {
     output.dispose()
 }
 
-async function executeRun(
-    kind: RunKind,
-    sandboxOverride?: boolean,
-    target?: unknown,
-): Promise<void> {
+async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
     try {
         const editor = resolveEditor(target)
         if (!editor) {
@@ -94,7 +86,7 @@ async function executeRun(
 
         const environment = prepareExecutionEnvironment(document)
         const config = getConfig()
-        const sandboxEnabled = sandboxOverride ?? config.sandbox.defaultEnabled
+        const sandboxEnabled = config.sandbox.defaultEnabled
 
         let method: MethodInfo | undefined
         let payload: string
@@ -205,7 +197,15 @@ async function runPrimary(): Promise<void> {
     }
 
     const kind = editor.selection.isEmpty ? 'file' : 'selection'
-    await executeRun(kind, undefined, undefined)
+    await executeRun(kind, undefined)
+}
+
+async function toggleSandbox(): Promise<void> {
+    const enabled = !getConfig().sandbox.defaultEnabled
+    await setSandboxDefaultEnabled(enabled)
+    void vscode.window.showInformationMessage(
+        `To Tinker sandbox ${enabled ? 'enabled' : 'disabled'}.`,
+    )
 }
 
 async function resolveMethodArguments(

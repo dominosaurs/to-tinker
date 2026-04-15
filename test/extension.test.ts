@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
 import { createTextDocument } from './helpers'
-import { commands, window } from './vscode'
+import { commands, window, workspace } from './vscode'
 
 const executeTinker = vi.fn()
 const renderExecutionReport = vi.fn()
 const prepareExecutionEnvironment = vi.fn()
 const promptForParameter = vi.fn()
+const setSandboxDefaultEnabled = vi.fn()
 const buildMethodPayload = vi.fn(() => 'method payload')
 const buildTinkerPayload = vi.fn(() => 'payload')
 const findMethodAtPosition = vi.fn()
@@ -25,6 +26,16 @@ vi.mock('../src/runner', async () => {
 vi.mock('../src/preflight', () => ({
     prepareExecutionEnvironment,
 }))
+
+vi.mock('../src/config', async () => {
+    const actual =
+        await vi.importActual<typeof import('../src/config')>('../src/config')
+
+    return {
+        ...actual,
+        setSandboxDefaultEnabled,
+    }
+})
 
 vi.mock('../src/php', () => ({
     promptForParameter,
@@ -82,6 +93,7 @@ describe('extension orchestration', () => {
         })
         buildMethodPayload.mockReturnValue('method payload')
         buildTinkerPayload.mockReturnValue('payload')
+        setSandboxDefaultEnabled.mockResolvedValue(undefined)
     })
 
     it('runs selection through preflight and execution pipeline', async () => {
@@ -220,6 +232,28 @@ class ReportRunner {
             expect.objectContaining({
                 promptedArguments: { 0: "'from prompt'" },
             }),
+        )
+    })
+
+    it('toggles sandbox default setting', async () => {
+        workspace.getConfiguration.mockImplementation(() => ({
+            get: (key: string, defaultValue?: unknown) =>
+                key === 'sandbox.defaultEnabled' ? true : defaultValue,
+            update: vi.fn(),
+        }))
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.toggleSandbox')
+        await callback()
+
+        expect(setSandboxDefaultEnabled).toHaveBeenCalledWith(false)
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+            'To Tinker sandbox disabled.',
         )
     })
 })

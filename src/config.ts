@@ -26,6 +26,19 @@ export function getConfig(): ExtensionConfig {
     }
 }
 
+export async function setSandboxDefaultEnabled(
+    enabled: boolean,
+): Promise<void> {
+    const config = vscode.workspace.getConfiguration('toTinker')
+    const target =
+        vscode.workspace.workspaceFolders &&
+        vscode.workspace.workspaceFolders.length > 0
+            ? vscode.ConfigurationTarget.Workspace
+            : vscode.ConfigurationTarget.Global
+
+    await config.update('sandbox.defaultEnabled', enabled, target)
+}
+
 function normalizeOptionalString(
     value: string | undefined,
 ): string | undefined {
