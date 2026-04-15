@@ -46,6 +46,22 @@ export function extractFile(document: vscode.TextDocument): string {
     return stripPhpTags(document.getText())
 }
 
+export function extractLine(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+): string {
+    const line = document.lineAt(position.line)
+    const text = line.text.trim()
+
+    if (!text) {
+        throw new Error(
+            'Current line is empty. Move the cursor to PHP code first.',
+        )
+    }
+
+    return stripPhpTags(text)
+}
+
 export function findMethodAtPosition(
     document: vscode.TextDocument,
     position: vscode.Position,

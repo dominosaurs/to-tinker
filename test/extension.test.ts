@@ -136,6 +136,45 @@ describe('extension orchestration', () => {
         expect(renderExecutionReport).toHaveBeenCalled()
     })
 
+    it('runs the current line through the execution pipeline', async () => {
+        const document = createTextDocument('<?php\n$foo = 1;\n$bar = 2;\n')
+        const cursor = new vscode.Selection(
+            new vscode.Position(2, 3),
+            new vscode.Position(2, 3),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runLine')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$bar = 2;',
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'line',
+                sourceLineEnd: 3,
+                sourceLineStart: 3,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
     it('shows preflight errors without attempting execution', async () => {
         const document = createTextDocument('<?php\nreturn 1;\n')
         const editor = {

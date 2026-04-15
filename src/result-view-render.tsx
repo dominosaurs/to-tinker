@@ -190,7 +190,7 @@ function Meta({ label, value }: { label: string; value: string }): JSX.Element {
 }
 
 function KindTabs({ activeKind }: { activeKind: string }): JSX.Element {
-    const kinds = ['file', 'method', 'selection']
+    const kinds = ['file', 'line', 'method', 'selection']
 
     return (
         <>

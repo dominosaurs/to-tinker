@@ -5,6 +5,7 @@
         "onCommand:toTinker.runPrimary",
         "onCommand:toTinker.runSelection",
         "onCommand:toTinker.runFile",
+        "onCommand:toTinker.runLine",
         "onCommand:toTinker.runMethod",
         "onCommand:toTinker.runMethodAt",
         "onCommand:toTinker.showLogs",
@@ -48,6 +49,12 @@
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
                 "title": "Run File"
+            },
+            {
+                "category": "To Tinker",
+                "command": "toTinker.runLine",
+                "enablement": "editorLangId == php",
+                "title": "Run Line"
             },
             {
                 "category": "To Tinker",
@@ -101,18 +108,16 @@
             }
         ],
         "menus": {
-            "editor/context": [
-                {
-                    "command": "toTinker.runSelection",
-                    "group": "navigation@10",
-                    "when": "editorLangId == php && editorHasSelection"
-                }
-            ],
             "editor/title": [
                 {
                     "command": "toTinker.runPrimary",
                     "group": "navigation",
                     "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
+                },
+                {
+                    "command": "toTinker.runLine",
+                    "group": "navigation@1",
+                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor && !editorHasSelection"
                 }
             ]
         }
@@ -134,7 +139,7 @@
     },
     "displayName": "To Tinker",
     "engines": {
-        "vscode": "^1.99.0"
+        "vscode": "^1.116.0"
     },
     "files": [
         "assets/images/icon256.png",
@@ -176,5 +181,5 @@
         "prepackage": "bun run build",
         "test": "vitest run"
     },
-    "version": "0.1.0"
+    "version": "0.1.1"
 }

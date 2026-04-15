@@ -16,6 +16,21 @@ export function createTextDocument(
             return text.slice(start, end)
         },
         languageId: 'php',
+        lineAt(line: number): vscode.TextLine {
+            const lines = text.split('\n')
+            return {
+                lineNumber: line,
+                range: new vscode.Range(
+                    new vscode.Position(line, 0),
+                    new vscode.Position(line, lines[line]?.length ?? 0),
+                ),
+                rangeIncludingLineBreak: new vscode.Range(
+                    new vscode.Position(line, 0),
+                    new vscode.Position(line, lines[line]?.length ?? 0),
+                ),
+                text: lines[line] ?? '',
+            } as vscode.TextLine
+        },
         lineCount: text.split('\n').length,
         offsetAt(position: vscode.Position): number {
             return offsetAt(text, position)

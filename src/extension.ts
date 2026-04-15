@@ -4,6 +4,7 @@ import { COMMANDS, type RunKind } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
 import {
     extractFile,
+    extractLine,
     extractSelection,
     findMethodAtPosition,
     type MethodInfo,
@@ -55,6 +56,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     register(COMMANDS.runSelection, 'selection')
     register(COMMANDS.runFile, 'file')
+    register(COMMANDS.runLine, 'line')
     register(COMMANDS.runMethod, 'method')
 
     context.subscriptions.push({
@@ -120,6 +122,19 @@ async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
                     selectionOrFileCode: sourceCode,
                 })
                 break
+            case 'line': {
+                const lineNumber = editor.selection.active.line
+                sourceCode = extractLine(document, editor.selection.active)
+                sourceLineStart = lineNumber + 1
+                sourceLineEnd = lineNumber + 1
+                payload = buildTinkerPayload({
+                    fakeStorage: config.sandbox.fakeStorage,
+                    filePath: document.uri.fsPath,
+                    sandboxEnabled,
+                    selectionOrFileCode: sourceCode,
+                })
+                break
+            }
             case 'method':
                 method = findMethodAtPosition(
                     document,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
 import {
     extractFile,
+    extractLine,
     extractSelection,
     findMethodAtPosition,
     findMethods,
@@ -21,6 +22,14 @@ describe('extraction', () => {
             new vscode.Position(1, 9),
         )
         expect(extractSelection(document, selection)).toBe('$foo = 1;')
+    })
+
+    it('extracts current line at cursor', () => {
+        const document = createTextDocument('<?php\n    $foo = 1;\n$bar = 2;')
+
+        expect(extractLine(document, new vscode.Position(1, 4))).toBe(
+            '$foo = 1;',
+        )
     })
 
     it('finds method under cursor with namespace and params', () => {
