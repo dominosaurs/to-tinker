@@ -12,6 +12,13 @@
         "onCommand:toTinker.runMethodAt",
         "onCommand:toTinker.showLogs"
     ],
+    "author": {
+        "name": "dominosaurs",
+        "url": "https://github.com/dominosaurs"
+    },
+    "bugs": {
+        "url": "https://github.com/dominosaurs/to-tinker/issues"
+    },
     "categories": [
         "Other"
     ],
@@ -187,6 +194,7 @@
         "package.json",
         "README.md"
     ],
+    "homepage": "https://github.com/dominosaurs/to-tinker#readme",
     "icon": "assets/images/icon.jpg",
     "keywords": [
         "laravel",
@@ -207,6 +215,10 @@
     "name": "to-tinker",
     "preview": true,
     "publisher": "dominosaurs",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dominosaurs/to-tinker.git"
+    },
     "scripts": {
         "build": "vite build",
         "lint": "biome check --write && tsc --noEmit",
