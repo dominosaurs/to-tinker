@@ -6,11 +6,11 @@ import { getConfig } from './config'
 import type { MethodInfo } from './extraction'
 import type { Log } from './log'
 import type { Output, RunSummary } from './output'
-import { resolvePhpExecutable } from './php'
 import type { LaravelWorkspace } from './workspace'
 
 export interface ExecutionRequest {
     workspace: LaravelWorkspace
+    phpExecutable: string
     kind: RunKind
     payload: string
     filePath: string
@@ -67,7 +67,6 @@ export async function executeTinker(
     }
 
     const config = getConfig()
-    const phpExecutable = resolvePhpExecutable()
     const timeoutMs = config.timeoutSeconds * 1000
     log.info(
         `spawn start kind=${request.kind} sandbox=${request.sandboxEnabled ? 'on' : 'off'} root=${request.workspace.rootPath}`,
@@ -80,7 +79,7 @@ export async function executeTinker(
 
     return await new Promise<ExecutionResult>((resolve, reject) => {
         const child = spawn(
-            phpExecutable,
+            request.phpExecutable,
             [
                 request.workspace.artisanPath,
                 'tinker',
@@ -160,7 +159,7 @@ export async function renderExecutionReport(
     if (result.timedOut) {
         await output.show({
             diagnostics: normalizeDiagnostics(result.stderr),
-            error: 'Execution timed out.',
+            error: 'Execution timed out before Laravel Tinker returned a result.',
             status: 'timeout',
             summary,
         })
@@ -225,6 +224,7 @@ function buildSummary(request: ExecutionRequest): RunSummary {
         filePath: request.filePath,
         kind: request.kind,
         methodName: request.method?.methodName,
+        phpExecutable: request.phpExecutable,
         rootPath: request.workspace.rootPath,
         sandboxEnabled: request.sandboxEnabled,
         sourceCode: request.sourceCode,

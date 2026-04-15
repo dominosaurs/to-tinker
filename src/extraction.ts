@@ -83,14 +83,20 @@ function parseNamespace(text: string): string | undefined {
 
 function parseClasses(text: string): ClassInfo[] {
     const classes: ClassInfo[] = []
-    const classRegex = /\bclass\s+([A-Za-z_][A-Za-z0-9_]*)[^{]*\{/g
+    const classRegex =
+        /\b(?:(?:abstract|final|readonly)\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)[^{]*\{/g
 
     for (const match of text.matchAll(classRegex)) {
         const name = match[1]
         const start = match.index
         const braceIndex = start + match[0].lastIndexOf('{')
         const end = findBlockEnd(text, braceIndex)
-        if (name && start !== undefined && end !== undefined) {
+        if (
+            name &&
+            start !== undefined &&
+            end !== undefined &&
+            !match[0].includes('abstract')
+        ) {
             classes.push({ end, name, start })
         }
     }
@@ -105,7 +111,7 @@ function parseMethods(
 ): MethodInfo[] {
     const methods: MethodInfo[] = []
     const methodRegex =
-        /\b(public|protected|private)?\s*(static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|?]+)?\s*\{/g
+        /(?:#\[[\s\S]*?\]\s*)*\b(?:final\s+)?(public|protected|private)?\s*(static\s+)?function\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|&?()\s]+)?\s*\{/g
 
     for (const match of text.matchAll(methodRegex)) {
         const start = match.index
@@ -163,17 +169,22 @@ function parseParameters(source: string): MethodParameter[] {
         .filter(Boolean)
 
     return parameters.map(parameter => {
-        const variableMatch = parameter.match(/\$([A-Za-z_][A-Za-z0-9_]*)/)
+        const normalizedParameter = stripParameterDecorators(parameter)
+        const variableMatch = normalizedParameter.match(
+            /\$([A-Za-z_][A-Za-z0-9_]*)/,
+        )
         const defaultMatch = parameter.match(/=\s*(.+)$/)
-        const typePart = parameter.split('$')[0]?.trim() ?? ''
-        const signatureHint = typePart.replace(/\s+/g, ' ').trim()
+        const typePart = variableMatch
+            ? normalizedParameter.slice(0, variableMatch.index).trim()
+            : ''
+        const signatureHint = normalizeSignatureHint(typePart)
         const hasDefault = Boolean(defaultMatch)
         const defaultExpression = defaultMatch?.[1]?.trim()
         const resolvableByContainer =
             Boolean(signatureHint) &&
             !/[|?]/.test(signatureHint) &&
             !isBuiltinType(signatureHint) &&
-            !parameter.includes('&')
+            !normalizedParameter.includes('&')
 
         if (!variableMatch) {
             throw new Error(`Unable to parse method parameter: ${parameter}`)
@@ -193,8 +204,24 @@ function splitParameterList(source: string): string[] {
     const items: string[] = []
     let current = ''
     let depth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
 
-    for (const character of source) {
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const previous = source[index - 1]
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+        } else if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            current += character
+            continue
+        }
+
         if (character === '(' || character === '[' || character === '{') {
             depth += 1
         } else if (
@@ -235,7 +262,24 @@ function isBuiltinType(type: string): boolean {
         'null',
         'false',
         'true',
+        'self',
+        'parent',
     ].includes(type.toLowerCase())
+}
+
+function stripParameterDecorators(parameter: string): string {
+    return parameter
+        .replace(/^(?:#\[[\s\S]*?\]\s*)+/u, '')
+        .replace(/^(?:public|protected|private|readonly)\s+/u, '')
+        .trim()
+}
+
+function normalizeSignatureHint(value: string): string {
+    return value
+        .replace(/^(?:readonly)\s+/u, '')
+        .replace(/\.\.\./g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
 }
 
 function findBlockEnd(

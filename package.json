@@ -20,7 +20,7 @@
         "url": "https://github.com/dominosaurs/to-tinker/issues"
     },
     "categories": [
-        "Other"
+        "Programming Languages"
     ],
     "contributes": {
         "commands": [
@@ -78,11 +78,6 @@
         ],
         "configuration": {
             "properties": {
-                "toTinker.clearOutputOnRun": {
-                    "default": true,
-                    "description": "Clear the To Tinker output channel before each run.",
-                    "type": "boolean"
-                },
                 "toTinker.codeLens.enabled": {
                     "default": true,
                     "description": "Show To Tinker CodeLens above supported PHP methods.",
@@ -121,32 +116,6 @@
             }
         ],
         "menus": {
-            "commandPalette": [
-                {
-                    "command": "toTinker.runSelection",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runSelectionDisableSandbox",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runFile",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runFileDisableSandbox",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runMethod",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runMethodDisableSandbox",
-                    "when": "false"
-                }
-            ],
             "editor/context": [
                 {
                     "command": "toTinker.runSelection",

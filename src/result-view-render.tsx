@@ -48,8 +48,11 @@ interface ViewModel {
     error?: string
     fileLabel: string
     kind: string
+    nextSteps: string[]
     notice?: string
     output?: HighlightLine[]
+    phpLabel?: string
+    rootLabel: string
     sandboxLabel: string
     source?: HighlightLine[]
     sourceLineStart?: number
@@ -74,6 +77,7 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
         error: report.error,
         fileLabel: `${shortPath(summary.filePath, summary.rootPath)}${formatLineRange(summary.sourceLineStart, summary.sourceLineEnd)}`,
         kind: summary.kind,
+        nextSteps: buildNextSteps(report, diagnostics),
         notice: stripElapsed(diagnostics) || undefined,
         output: report.result
             ? await highlightLines(
@@ -81,6 +85,8 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
                   detectLanguage(summary.kind, report.result, false),
               )
             : undefined,
+        phpLabel: summary.phpExecutable,
+        rootLabel: summary.rootPath,
         sandboxLabel: summary.sandboxEnabled ? 'sandbox' : 'no sandbox',
         source: summary.sourceCode
             ? await highlightLines(summary.sourceCode, 'php')
@@ -108,6 +114,15 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
             </head>
             <body>
                 <Header view={view} />
+                {view.nextSteps.length > 0 ? (
+                    <Section title="Next">
+                        <ul class="tips">
+                            {view.nextSteps.map(step => (
+                                <li>{step}</li>
+                            ))}
+                        </ul>
+                    </Section>
+                ) : null}
                 {view.output ? (
                     <Section title="Output">
                         <div class="block result">
@@ -143,7 +158,8 @@ function Header({ view }: { view: ViewModel }): JSX.Element {
     return (
         <div class="top">
             <div class="status-line">
-                <span class="sandbox">({view.sandboxLabel})</span>
+                <span class="chip chip-muted">{view.sandboxLabel}</span>
+                <span class="chip chip-muted">{capitalize(view.kind)}</span>
                 <span class={`status-${view.statusLabel}`}>
                     {view.statusLabel}
                 </span>
@@ -152,8 +168,23 @@ function Header({ view }: { view: ViewModel }): JSX.Element {
                 ) : null}
             </div>
             <KindTabs activeKind={view.kind} />
-            <div class="file">{view.fileLabel}</div>
-            <div class="target">{view.targetLabel}</div>
+            <div class="meta-grid">
+                <Meta label="Target" value={view.targetLabel} />
+                <Meta label="File" value={view.fileLabel} />
+                <Meta label="Workspace Root" value={view.rootLabel} />
+                {view.phpLabel ? (
+                    <Meta label="PHP" value={view.phpLabel} />
+                ) : null}
+            </div>
+        </div>
+    )
+}
+
+function Meta({ label, value }: { label: string; value: string }): JSX.Element {
+    return (
+        <div class="meta-item">
+            <span class="meta-label">{label}</span>
+            <span class="meta-value">{value}</span>
         </div>
     )
 }
@@ -340,9 +371,21 @@ function styles(): string {
             flex-wrap: wrap;
             margin-bottom: 4px;
         }
-        .sandbox, .elapsed, .file, .target {
+        .elapsed {
             color: var(--muted);
             font-size: 12px;
+        }
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .chip-muted {
+            color: var(--muted);
+            background: color-mix(in srgb, var(--code-bg) 70%, transparent 30%);
         }
         .status-success { color: var(--ok); font-weight: 700; }
         .status-error { color: var(--error); font-weight: 700; }
@@ -350,10 +393,43 @@ function styles(): string {
         .status-timeout { color: var(--timeout); font-weight: 700; }
         .kind { color: var(--muted); }
         .kind-active { color: var(--info); font-weight: 700; }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .meta-item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: color-mix(in srgb, var(--code-bg) 65%, transparent 35%);
+        }
+        .meta-label {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 3px;
+        }
+        .meta-value {
+            display: block;
+            font-size: 13px;
+            word-break: break-word;
+        }
         .notice {
             margin-top: 18px;
             color: var(--notice);
             font-size: 12px;
+        }
+        .tips {
+            margin: 0 0 18px;
+            padding-left: 18px;
+            color: var(--muted);
+        }
+        .tips li + li {
+            margin-top: 6px;
         }
         .block {
             overflow: auto;
@@ -484,6 +560,68 @@ function detectLanguage(
     }
 
     return 'text'
+}
+
+function buildNextSteps(report: RunReport, diagnostics: string): string[] {
+    const details = `${report.error ?? ''}\n${diagnostics}`.toLowerCase()
+    const steps: string[] = []
+
+    if (report.status === 'running') {
+        return [
+            'Wait for Laravel Tinker to finish, or trigger another run after the current one completes.',
+        ]
+    }
+
+    if (report.status === 'timeout') {
+        steps.push(
+            'Increase toTinker.timeoutSeconds if this code path is expected to take longer.',
+        )
+        steps.push(
+            'Reduce the amount of work in the selection or method to isolate the slow step.',
+        )
+    }
+
+    if (details.includes('unresolved parameter')) {
+        steps.push(
+            'Run the method again and provide a PHP expression for each unresolved scalar parameter.',
+        )
+    }
+
+    if (details.includes('uninitialized property')) {
+        steps.push(
+            'Prefer a method whose dependencies are fully initialized by the Laravel container, or initialize the object state before invoking it.',
+        )
+    }
+
+    if (details.includes('class') && details.includes('not found')) {
+        steps.push(
+            'Confirm the Laravel app boots cleanly and the target class is autoloadable from the current workspace root.',
+        )
+    }
+
+    if (
+        details.includes('bindingresolutionexception') ||
+        details.includes('target class') ||
+        details.includes('unable to resolve')
+    ) {
+        steps.push(
+            'Check container bindings and constructor dependencies for the selected method target.',
+        )
+    }
+
+    if (details.includes('syntax error') || details.includes('parse error')) {
+        steps.push(
+            'Fix the PHP syntax in the current selection, file, or method and run it again.',
+        )
+    }
+
+    if (steps.length === 0 && report.status !== 'success') {
+        steps.push(
+            'Inspect the diagnostics below to find the first Laravel or PHP error in the stack trace.',
+        )
+    }
+
+    return steps
 }
 
 function capitalize(value: string): string {

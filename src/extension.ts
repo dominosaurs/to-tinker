@@ -11,8 +11,8 @@ import {
 import { Log } from './log'
 import { Output } from './output'
 import { promptForParameter } from './php'
+import { prepareExecutionEnvironment } from './preflight'
 import { executeTinker, RunRegistry, renderExecutionReport } from './runner'
-import { resolveLaravelWorkspace } from './workspace'
 import { buildMethodPayload, buildTinkerPayload } from './wrapper'
 
 const output = new Output()
@@ -92,7 +92,7 @@ async function executeRun(
             throw new Error('Active editor must be a PHP file.')
         }
 
-        const workspace = resolveLaravelWorkspace(document)
+        const environment = prepareExecutionEnvironment(document)
         const config = getConfig()
         const sandboxEnabled = sandboxOverride ?? config.sandbox.defaultEnabled
 
@@ -156,11 +156,12 @@ async function executeRun(
                 kind,
                 method,
                 payload,
+                phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
                 sourceCode,
                 sourceLineEnd,
                 sourceLineStart,
-                workspace,
+                workspace: environment.workspace,
             },
             output,
             registry,
@@ -173,11 +174,12 @@ async function executeRun(
                 kind,
                 method,
                 payload,
+                phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
                 sourceCode,
                 sourceLineEnd,
                 sourceLineStart,
-                workspace,
+                workspace: environment.workspace,
             },
             result,
             output,
@@ -216,10 +218,7 @@ async function resolveMethodArguments(
             continue
         }
 
-        const value = await promptForParameter(
-            parameter.name,
-            parameter.signatureHint,
-        )
+        const value = await promptForParameter(method, parameter)
         argumentsList[index] = value
     }
 

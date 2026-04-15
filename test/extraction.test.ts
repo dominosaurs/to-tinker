@@ -4,6 +4,7 @@ import {
     extractFile,
     extractSelection,
     findMethodAtPosition,
+    findMethods,
 } from '../src/extraction'
 import { createTextDocument } from './helpers'
 
@@ -62,5 +63,67 @@ class ReportRunner
                 signatureHint: 'string',
             },
         ])
+    })
+
+    it('supports attributed methods with multiline signatures and reference returns', () => {
+        const text = `<?php
+namespace App\\Services;
+
+final readonly class ReportRunner
+{
+    #[Example('demo')]
+    public static function &build(
+        #[Config('users')] UserService $users,
+        string $label = "a,b",
+        array $options = ['x' => ['y', 'z']],
+    ): UserService|array
+    {
+        return $users;
+    }
+}
+`
+        const document = createTextDocument(text)
+        const [method] = findMethods(document)
+
+        expect(method?.className).toBe('ReportRunner')
+        expect(method?.methodName).toBe('build')
+        expect(method?.isStatic).toBe(true)
+        expect(method?.parameters).toEqual([
+            {
+                defaultExpression: undefined,
+                hasDefault: false,
+                name: 'users',
+                resolvableByContainer: true,
+                signatureHint: 'UserService',
+            },
+            {
+                defaultExpression: '"a,b"',
+                hasDefault: true,
+                name: 'label',
+                resolvableByContainer: false,
+                signatureHint: 'string',
+            },
+            {
+                defaultExpression: "['x' => ['y', 'z']]",
+                hasDefault: true,
+                name: 'options',
+                resolvableByContainer: false,
+                signatureHint: 'array',
+            },
+        ])
+    })
+
+    it('ignores abstract class methods for runnable targets', () => {
+        const text = `<?php
+abstract class BaseRunner
+{
+    public function build(): void
+    {
+    }
+}
+`
+        const document = createTextDocument(text)
+
+        expect(findMethods(document)).toEqual([])
     })
 })

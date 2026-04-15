@@ -2,6 +2,7 @@ export interface RunSummary {
     kind: string
     filePath: string
     rootPath: string
+    phpExecutable?: string
     sandboxEnabled: boolean
     sourceCode?: string
     sourceLineStart?: number

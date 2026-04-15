@@ -4,6 +4,12 @@ Run any PHP or Laravel code in one click from VS Code ⚡
 
 To Tinker is a VS Code extension that lets you run selected PHP, full files, and class methods without leaving the editor. It uses Laravel Tinker under the hood so you can execute real application code fast, with less setup and less context switching.
 
+## Requirements
+
+- A Laravel project with an `artisan` file
+- A PHP file opened inside a VS Code workspace folder
+- PHP available in your `PATH`, or configured explicitly with `toTinker.phpPath`
+
 ## Why this exists
 
 Most Laravel developers eventually do the same awkward loop:
@@ -44,9 +50,17 @@ Configure To Tinker in VS Code through Settings and search for `To Tinker`.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `toTinker.clearOutputOnRun` | `boolean` | `true` | Clear the To Tinker output channel before each run. |
 | `toTinker.codeLens.enabled` | `boolean` | `true` | Show To Tinker CodeLens above supported PHP methods. |
 | `toTinker.phpPath` | `string` | `""` | Path to the PHP executable. Leave empty to use `php` from `PATH`. |
 | `toTinker.sandbox.defaultEnabled` | `boolean` | `true` | Enable the partial sandbox by default. |
 | `toTinker.sandbox.fakeStorage` | `boolean` | `false` | Also fake Laravel storage disks inside sandboxed runs. |
 | `toTinker.timeoutSeconds` | `number` | `15` | Timeout for the spawned `artisan tinker` process. |
+
+## Troubleshooting
+
+| Problem | Likely cause | What to do |
+| --- | --- | --- |
+| `Open a PHP editor first.` | There is no active PHP editor. | Open a `.php` file and run the command again. |
+| `No Laravel artisan file found...` | The active file is not inside a Laravel project root that contains `artisan`. | Open the project root in VS Code and run To Tinker from a PHP file inside that workspace. |
+| `Configured PHP path is not executable...` | `toTinker.phpPath` points to the wrong location, or PHP is not available to the extension host. | Fix `toTinker.phpPath`, or clear it and use `php` from `PATH`. |
+| Execution timed out | The Tinker process exceeded `toTinker.timeoutSeconds`. | Increase `toTinker.timeoutSeconds` or reduce the amount of work being run. |
