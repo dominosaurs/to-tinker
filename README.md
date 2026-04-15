@@ -37,3 +37,16 @@ Sandbox is partial, not full isolation.
 - Still may allow non-faked side effects like network calls, filesystem writes outside fake disks, and framework behavior tied to commit semantics ⚠️
 
 Use `Disable Sandbox` commands only when you want real execution.
+
+## Configuration
+
+Configure To Tinker in VS Code through Settings and search for `To Tinker`.
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `toTinker.clearOutputOnRun` | `boolean` | `true` | Clear the To Tinker output channel before each run. |
+| `toTinker.codeLens.enabled` | `boolean` | `true` | Show To Tinker CodeLens above supported PHP methods. |
+| `toTinker.phpPath` | `string` | `""` | Path to the PHP executable. Leave empty to use `php` from `PATH`. |
+| `toTinker.sandbox.defaultEnabled` | `boolean` | `true` | Enable the partial sandbox by default. |
+| `toTinker.sandbox.fakeStorage` | `boolean` | `false` | Also fake Laravel storage disks inside sandboxed runs. |
+| `toTinker.timeoutSeconds` | `number` | `15` | Timeout for the spawned `artisan tinker` process. |
