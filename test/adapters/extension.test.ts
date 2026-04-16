@@ -298,8 +298,7 @@ class Runner {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$foo = 1;',
-                smartCapture: true,
+                preparedUserCode: '$__toTinkerResult = ($foo = 1);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -415,16 +414,12 @@ Inspiring::quote();
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: `use Illuminate\\Foundation\\Inspiring;
-
+                preparedUserCode: `use Illuminate\\Foundation\\Inspiring;
 function getRandom() {
     return rand(1, 10);
 }
-
 getRandom();
-
-Inspiring::quote();`,
-                smartCapture: true,
+$__toTinkerResult = (Inspiring::quote());`,
             }),
         )
     })
@@ -453,8 +448,7 @@ Inspiring::quote();`,
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$foo = 1;\n$bar = 2;',
-                smartCapture: true,
+                preparedUserCode: '$foo = 1;\n$__toTinkerResult = ($bar = 2);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -499,8 +493,7 @@ Inspiring::quote();`,
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$foo = 1;\n$bar = 2;',
-                smartCapture: true,
+                preparedUserCode: '$foo = 1;\n$__toTinkerResult = ($bar = 2);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -545,8 +538,7 @@ class ReportRunner {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$bar = 2;',
-                smartCapture: true,
+                preparedUserCode: '$__toTinkerResult = ($bar = 2);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -595,8 +587,7 @@ class ReportRunner {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$foo = 1',
-                smartCapture: true,
+                preparedUserCode: '$__toTinkerResult = ($foo = 1);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -639,8 +630,7 @@ function build() {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$bar = 2;',
-                smartCapture: true,
+                preparedUserCode: '$__toTinkerResult = ($bar = 2);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -687,8 +677,7 @@ function build() {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$foo = 1',
-                smartCapture: true,
+                preparedUserCode: '$__toTinkerResult = ($foo = 1);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(

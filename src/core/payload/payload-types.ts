@@ -4,6 +4,7 @@ export interface PayloadBuildOptions {
     sandboxEnabled: boolean
     fakeStorage: boolean
     filePath: string
+    preparedUserCode?: string
     method?: MethodInfo
     callableFunction?: FunctionInfo
     functionDeclarationSource?: string
