@@ -4,6 +4,10 @@ import * as vscode from 'vscode'
 export function createTextDocument(
     text: string,
     fsPath = path.join('/tmp', 'sample.php'),
+    options?: {
+        isDirty?: boolean
+        save?: () => Thenable<boolean>
+    },
 ): vscode.TextDocument {
     return {
         getText(range?: vscode.Range | vscode.Selection): string {
@@ -15,6 +19,7 @@ export function createTextDocument(
             const end = offsetAt(text, range.end)
             return text.slice(start, end)
         },
+        isDirty: options?.isDirty ?? false,
         languageId: 'php',
         lineAt(line: number): vscode.TextLine {
             const lines = text.split('\n')
@@ -38,6 +43,7 @@ export function createTextDocument(
         positionAt(offset: number): vscode.Position {
             return positionAt(text, offset)
         },
+        save: options?.save ?? (async () => true),
         uri: vscode.Uri.file(fsPath),
     } as vscode.TextDocument
 }

@@ -4,12 +4,14 @@ import { COMMANDS, type RunMode } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
 import {
     extractFile,
-    extractLine,
+    extractPrefixToLine,
+    extractPrefixToSelectionEnd,
     extractSelection,
     type FunctionInfo,
     findFunctionAtPosition,
     findFunctionMatchingSelection,
     findMethodAtPosition,
+    findMethodMatchingSelection,
     type MethodInfo,
     parseSelectedFunctionDeclaration,
 } from './extraction'
@@ -100,6 +102,15 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
             throw new Error('Active editor must be a PHP file.')
         }
 
+        if (document.isDirty) {
+            const saved = await document.save()
+            if (!saved) {
+                throw new Error(
+                    'Could not save the file before running To Tinker.',
+                )
+            }
+        }
+
         const environment = prepareExecutionEnvironment(document)
         const config = getConfig()
         const sandboxEnabled = config.sandbox.defaultEnabled
@@ -117,6 +128,23 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
             case 'selection':
                 if (editor.selections.length !== 1) {
                     throw new Error('Multiple selections are not supported.')
+                }
+                method = findMethodMatchingSelection(document, editor.selection)
+                if (method) {
+                    resolvedMode = 'method'
+                    sourceCode = document
+                        .getText()
+                        .slice(method.start, method.end + 1)
+                    sourceLineStart = document.positionAt(method.start).line + 1
+                    sourceLineEnd = document.positionAt(method.end).line + 1
+                    payload = buildMethodPayload({
+                        fakeStorage: config.sandbox.fakeStorage,
+                        filePath: document.uri.fsPath,
+                        method,
+                        promptedArguments: await resolveMethodArguments(method),
+                        sandboxEnabled,
+                    })
+                    break
                 }
                 {
                     const matchedTopLevelFunction =
@@ -158,8 +186,11 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                     break
                 }
 
-                sourceCode = extractSelection(document, editor.selection)
-                sourceLineStart = editor.selection.start.line + 1
+                sourceCode = extractPrefixToSelectionEnd(
+                    document,
+                    editor.selection,
+                )
+                sourceLineStart = 1
                 sourceLineEnd = editor.selection.end.line + 1
                 payload = buildTinkerPayload({
                     fakeStorage: config.sandbox.fakeStorage,
@@ -183,8 +214,11 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                 break
             case 'line': {
                 const lineNumber = editor.selection.active.line
-                sourceCode = extractLine(document, editor.selection.active)
-                sourceLineStart = lineNumber + 1
+                sourceCode = extractPrefixToLine(
+                    document,
+                    editor.selection.active,
+                )
+                sourceLineStart = 1
                 sourceLineEnd = lineNumber + 1
                 payload = buildTinkerPayload({
                     fakeStorage: config.sandbox.fakeStorage,

@@ -34,7 +34,7 @@ describe('wrapper', () => {
 
         expect(payload).toContain(
             `$__toTinkerUserCode = base64_decode('${Buffer.from(
-                'return $user->email;',
+                '$__toTinkerResult = ($user->email);',
                 'utf8',
             ).toString('base64')}');`,
         )
@@ -51,7 +51,7 @@ describe('wrapper', () => {
 
         expect(payload).toContain(
             `$__toTinkerUserCode = base64_decode('${Buffer.from(
-                "return route('clm.members.create');",
+                "$__toTinkerResult = (route('clm.members.create'));",
                 'utf8',
             ).toString('base64')}');`,
         )
@@ -68,7 +68,7 @@ describe('wrapper', () => {
 
         expect(payload).toContain(
             `$__toTinkerUserCode = base64_decode('${Buffer.from(
-                "return route('clm.members.create');",
+                "$__toTinkerResult = (route('clm.members.create'));",
                 'utf8',
             ).toString('base64')}');`,
         )
@@ -85,7 +85,7 @@ describe('wrapper', () => {
 
         expect(payload).toContain(
             `$__toTinkerUserCode = base64_decode('${Buffer.from(
-                '$user = User::first();\nreturn $user->email;',
+                '$user = User::first();\n$__toTinkerResult = ($user->email);',
                 'utf8',
             ).toString('base64')}');`,
         )
@@ -96,9 +96,8 @@ describe('wrapper', () => {
 function getRandom() {
     return rand(1, 10);
 }
-
 getRandom();
-return Inspiring::quote();`
+$__toTinkerResult = (Inspiring::quote());`
         const payload = buildTinkerPayload({
             fakeStorage: false,
             filePath: '/tmp/demo.php',
@@ -120,7 +119,106 @@ Inspiring::quote();`,
         )
     })
 
-    it('keeps assignments as statements in smart selections', () => {
+    it('captures the final assignment value instead of suppressing it', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: '$val = getValue2();',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(
+                '$__toTinkerResult = ($val = getValue2());',
+                'utf8',
+            ).toString('base64')}');`,
+        )
+    })
+
+    it('captures the final compound assignment value', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: '$count += 2;',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(
+                '$__toTinkerResult = ($count += 2);',
+                'utf8',
+            ).toString('base64')}');`,
+        )
+    })
+
+    it('captures the actual expression value for increment statements', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: '$count++;',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(
+                '$__toTinkerResult = ($count++);',
+                'utf8',
+            ).toString('base64')}');`,
+        )
+    })
+
+    it('ignores trailing comments when capturing the final statement', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode:
+                '$val = getValue2(); // should print assigned value',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(
+                '$__toTinkerResult = ($val = getValue2());',
+                'utf8',
+            ).toString('base64')}');`,
+        )
+    })
+
+    it('ignores leading comments before declarations when capturing a later call', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: `// 1. automatic save file before run command.
+// 2. this extension should be smart enough to remove or ignore the comments
+
+function getValue1(): int {
+    return 30000;
+}
+
+getValue1(); // 3. selection and line modes should smart enough to call intended function`,
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(
+                `// 1. automatic save file before run command.
+// 2. this extension should be smart enough to remove or ignore the comments
+
+function getValue1(): int {
+    return 30000;
+}
+$__toTinkerResult = (getValue1());`,
+                'utf8',
+            ).toString('base64')}');`,
+        )
+    })
+
+    it('captures simple assignments in smart selections', () => {
         const payload = buildTinkerPayload({
             fakeStorage: false,
             filePath: '/tmp/demo.php',
@@ -131,7 +229,7 @@ Inspiring::quote();`,
 
         expect(payload).toContain(
             `$__toTinkerUserCode = base64_decode('${Buffer.from(
-                '$user = User::first();',
+                '$__toTinkerResult = ($user = User::first());',
                 'utf8',
             ).toString('base64')}');`,
         )
@@ -163,6 +261,27 @@ Inspiring::quote();`,
         expect(payload).not.toContain('echo "Result:\\n";')
         expect(payload).toContain(
             'if (!str_ends_with($__toTinkerBufferedOutput, "\\n")) {',
+        )
+    })
+
+    it('preserves captured result assignments instead of overwriting them with eval null', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: '$formatted = number_format($val);',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            '$__toTinkerEvalResult = eval($__toTinkerUserCode);',
+        )
+        expect(payload).toContain('if (!is_null($__toTinkerEvalResult)) {')
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(
+                '$__toTinkerResult = ($formatted = number_format($val));',
+                'utf8',
+            ).toString('base64')}');`,
         )
     })
 

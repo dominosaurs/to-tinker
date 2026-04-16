@@ -1,4 +1,4 @@
-import type * as vscode from 'vscode'
+import * as vscode from 'vscode'
 
 export interface ClassInfo {
     name: string
@@ -56,6 +56,29 @@ export function extractSelection(
 
 export function extractFile(document: vscode.TextDocument): string {
     return stripPhpTags(document.getText())
+}
+
+export function extractPrefixToLine(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+): string {
+    const line = document.lineAt(position.line)
+    return stripPhpTags(
+        document.getText(
+            new vscode.Range(new vscode.Position(0, 0), line.range.end),
+        ),
+    )
+}
+
+export function extractPrefixToSelectionEnd(
+    document: vscode.TextDocument,
+    selection: vscode.Selection,
+): string {
+    return stripPhpTags(
+        document.getText(
+            new vscode.Range(new vscode.Position(0, 0), selection.end),
+        ),
+    )
 }
 
 export function extractLine(
@@ -147,6 +170,25 @@ export function findFunctionMatchingSelection(
     return findFunctions(document).find(
         callable =>
             callable.start === trimmedStart && callable.end + 1 === trimmedEnd,
+    )
+}
+
+export function findMethodMatchingSelection(
+    document: vscode.TextDocument,
+    selection: vscode.Selection,
+): MethodInfo | undefined {
+    const text = document.getText()
+    const normalizedStart = document.offsetAt(selection.start)
+    const normalizedEnd = document.offsetAt(selection.end)
+    const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
+        text,
+        normalizedStart,
+        normalizedEnd,
+    )
+
+    return findMethods(document).find(
+        method =>
+            method.start === trimmedStart && method.end + 1 === trimmedEnd,
     )
 }
 

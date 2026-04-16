@@ -309,6 +309,75 @@ class Runner {
         )
     })
 
+    it('saves a dirty active document before running', async () => {
+        const save = vi.fn(async () => true)
+        const document = createTextDocument(
+            '<?php\n$foo = 1;\n',
+            '/tmp/sample.php',
+            {
+                isDirty: true,
+                save,
+            },
+        )
+        const cursor = new vscode.Selection(
+            new vscode.Position(1, 0),
+            new vscode.Position(1, 0),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runPrimary')
+        await callback()
+
+        expect(save).toHaveBeenCalled()
+    })
+
+    it('aborts the run when saving the active document fails', async () => {
+        const save = vi.fn(async () => false)
+        const document = createTextDocument(
+            '<?php\n$foo = 1;\n',
+            '/tmp/sample.php',
+            {
+                isDirty: true,
+                save,
+            },
+        )
+        const cursor = new vscode.Selection(
+            new vscode.Position(1, 0),
+            new vscode.Position(1, 0),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runPrimary')
+        await callback()
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+            'Could not save the file before running To Tinker.',
+        )
+        expect(executeTinker).not.toHaveBeenCalled()
+    })
+
     it('runs file mode with last-expression capture for final returnable lines', async () => {
         const document = createTextDocument(`<?php
 use Illuminate\\Foundation\\Inspiring;
@@ -381,14 +450,118 @@ Inspiring::quote();`,
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                selectionOrFileCode: '$bar = 2;',
+                selectionOrFileCode: '$foo = 1;\n$bar = 2;',
+                smartCapture: true,
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
             expect.objectContaining({
                 mode: 'line',
                 sourceLineEnd: 3,
-                sourceLineStart: 3,
+                sourceLineStart: 1,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('runs selection mode as file prefix through selection end', async () => {
+        const document = createTextDocument(
+            '<?php\n$foo = 1;\n$bar = 2;\n$baz = 3;\n',
+        )
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                new vscode.Position(2, 0),
+                new vscode.Position(2, 9),
+            ),
+            selections: [
+                new vscode.Selection(
+                    new vscode.Position(2, 0),
+                    new vscode.Position(2, 9),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runSelection')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$foo = 1;\n$bar = 2;',
+                smartCapture: true,
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'selection',
+                sourceLineEnd: 3,
+                sourceLineStart: 1,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('treats a full method declaration selection as method mode', async () => {
+        const source = `<?php
+class ReportRunner {
+    public function build(string $label) {
+        return $label;
+    }
+}`
+        const document = createTextDocument(source)
+        const methodStart = source.indexOf('public function build')
+        const methodEnd = source.lastIndexOf('}')
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                document.positionAt(methodStart),
+                document.positionAt(methodEnd),
+            ),
+            selections: [
+                new vscode.Selection(
+                    document.positionAt(methodStart),
+                    document.positionAt(methodEnd),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        findMethodAtPosition.mockReset()
+        buildTinkerPayload.mockClear()
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runPrimary')
+        await callback()
+
+        expect(buildMethodPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                method: expect.objectContaining({
+                    methodName: 'build',
+                }),
+            }),
+        )
+        expect(buildTinkerPayload).not.toHaveBeenCalled()
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                method: expect.objectContaining({
+                    methodName: 'build',
+                }),
+                mode: 'method',
             }),
             expect.anything(),
             expect.anything(),
