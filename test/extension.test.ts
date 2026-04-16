@@ -136,6 +136,43 @@ describe('extension orchestration', () => {
         expect(renderExecutionReport).toHaveBeenCalled()
     })
 
+    it('runs the current file when primary command is used without a selection', async () => {
+        const document = createTextDocument('<?php\n$foo = 1;\n')
+        const cursor = new vscode.Selection(
+            new vscode.Position(1, 0),
+            new vscode.Position(1, 0),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runPrimary')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$foo = 1;',
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'file',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
     it('runs the current line through the execution pipeline', async () => {
         const document = createTextDocument('<?php\n$foo = 1;\n$bar = 2;\n')
         const cursor = new vscode.Selection(
