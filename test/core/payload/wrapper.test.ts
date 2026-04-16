@@ -3,7 +3,7 @@ import {
     buildFunctionPayload,
     buildMethodPayload,
     buildTinkerPayload,
-} from '../src/wrapper'
+} from '../../../src/wrapper'
 
 describe('wrapper', () => {
     it('builds sandboxed selection payload', () => {

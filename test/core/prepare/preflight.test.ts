@@ -3,8 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { prepareExecutionEnvironment } from '../src/preflight'
-import { createTextDocument } from './helpers'
+import { prepareExecutionEnvironment } from '../../../src/preflight'
+import { createTextDocument } from '../../helpers'
 
 describe('prepareExecutionEnvironment', () => {
     it('fails early for non-php documents', () => {

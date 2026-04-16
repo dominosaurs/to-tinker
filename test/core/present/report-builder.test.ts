@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
-import { buildExecutionReport } from '../src/core/present/report-builder'
+import { buildExecutionReport } from '../../../src/core/present/report-builder'
 import type {
     ExecutionRequest,
     ExecutionResult,
-} from '../src/core/types/execution'
+} from '../../../src/core/types/execution'
 
 function createRequest(): ExecutionRequest {
     return {

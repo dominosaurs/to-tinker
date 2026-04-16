@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripAnsi } from '../src/ansi'
+import { stripAnsi } from '../../src/ansi'
 
 describe('stripAnsi', () => {
     it('removes terminal escape codes', () => {

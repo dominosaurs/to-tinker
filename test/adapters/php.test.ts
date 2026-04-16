@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { promptForParameter, resolvePhpExecutable } from '../src/php'
+import { promptForParameter, resolvePhpExecutable } from '../../src/php'
 
 describe('php', () => {
     afterEach(() => {

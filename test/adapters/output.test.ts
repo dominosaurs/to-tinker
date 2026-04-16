@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { Output } from '../src/output'
-import { renderResultView } from '../src/result-view'
+import { Output } from '../../src/output'
+import { renderResultView } from '../../src/result-view'
 
 describe('output', () => {
     it('reuses same webview panel across updates', async () => {

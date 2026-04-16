@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
-import { planRun } from '../src/core/plan/plan-run'
-import { createTextDocument } from './helpers'
+import { planRun } from '../../../src/core/plan/plan-run'
+import { createTextDocument } from '../../helpers'
 
 describe('planRun', () => {
     it('promotes a full selected function declaration to function strategy', () => {

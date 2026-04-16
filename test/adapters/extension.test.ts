@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { createTextDocument } from './helpers'
-import { commands, window, workspace } from './vscode'
+import { createTextDocument } from '../helpers'
+import { commands, window, workspace } from '../vscode'
 
 const executeTinker = vi.fn()
 const renderExecutionReport = vi.fn()
@@ -14,9 +14,11 @@ const buildTinkerPayload = vi.fn(() => 'payload')
 const findFunctionAtPosition = vi.fn()
 const findMethodAtPosition = vi.fn()
 
-vi.mock('../src/runner', async () => {
+vi.mock('../../src/runner', async () => {
     const actual =
-        await vi.importActual<typeof import('../src/runner')>('../src/runner')
+        await vi.importActual<typeof import('../../src/runner')>(
+            '../../src/runner',
+        )
 
     return {
         ...actual,
@@ -25,13 +27,15 @@ vi.mock('../src/runner', async () => {
     }
 })
 
-vi.mock('../src/preflight', () => ({
+vi.mock('../../src/preflight', () => ({
     prepareExecutionEnvironment,
 }))
 
-vi.mock('../src/config', async () => {
+vi.mock('../../src/config', async () => {
     const actual =
-        await vi.importActual<typeof import('../src/config')>('../src/config')
+        await vi.importActual<typeof import('../../src/config')>(
+            '../../src/config',
+        )
 
     return {
         ...actual,
@@ -39,21 +43,20 @@ vi.mock('../src/config', async () => {
     }
 })
 
-vi.mock('../src/php', () => ({
+vi.mock('../../src/php', () => ({
     promptForParameter,
 }))
 
-vi.mock('../src/wrapper', () => ({
+vi.mock('../../src/wrapper', () => ({
     buildFunctionPayload,
     buildMethodPayload,
     buildTinkerPayload,
 }))
 
-vi.mock('../src/extraction', async () => {
-    const actual =
-        await vi.importActual<typeof import('../src/extraction')>(
-            '../src/extraction',
-        )
+vi.mock('../../src/extraction', async () => {
+    const actual = await vi.importActual<typeof import('../../src/extraction')>(
+        '../../src/extraction',
+    )
 
     return {
         ...actual,
@@ -128,7 +131,7 @@ describe('extension orchestration', () => {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -177,7 +180,7 @@ function build_report(string $label) {
         findFunctionAtPosition.mockReset()
         buildTinkerPayload.mockClear()
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -239,7 +242,7 @@ class Runner {
         window.activeTextEditor = editor as unknown as vscode.TextEditor
         buildFunctionPayload.mockClear()
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -284,7 +287,7 @@ class Runner {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -330,7 +333,7 @@ class Runner {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -363,7 +366,7 @@ class Runner {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -401,7 +404,7 @@ Inspiring::quote();
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -439,7 +442,7 @@ Inspiring::quote();`,
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -485,7 +488,7 @@ Inspiring::quote();`,
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -531,7 +534,7 @@ class ReportRunner {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -581,7 +584,7 @@ class ReportRunner {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -625,7 +628,7 @@ function build() {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -673,7 +676,7 @@ function build() {
         }
         window.activeTextEditor = editor as unknown as vscode.TextEditor
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -727,7 +730,7 @@ class ReportRunner {
         findMethodAtPosition.mockReset()
         buildTinkerPayload.mockClear()
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -779,7 +782,7 @@ class ReportRunner {
             )
         })
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -831,7 +834,7 @@ class ReportRunner {
             visibility: 'public',
         })
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -890,7 +893,7 @@ function build_report(string $label) {
             start: source.indexOf('function build_report'),
         })
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext
@@ -936,7 +939,7 @@ function build_report(string $label) {
             update: vi.fn(),
         }))
 
-        const { activate } = await import('../src/extension')
+        const { activate } = await import('../../src/extension')
         const context = {
             subscriptions: [],
         } as unknown as vscode.ExtensionContext

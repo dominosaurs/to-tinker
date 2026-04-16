@@ -10,8 +10,8 @@ import {
     findMethodAtPosition,
     findMethods,
     parseSelectedFunctionDeclaration,
-} from '../src/extraction'
-import { createTextDocument } from './helpers'
+} from '../../../src/extraction'
+import { createTextDocument } from '../../helpers'
 
 describe('extraction', () => {
     it('strips php tags from file', () => {

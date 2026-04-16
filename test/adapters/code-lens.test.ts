@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ToTinkerCodeLensProvider } from '../src/code-lens'
-import { createTextDocument } from './helpers'
+import { ToTinkerCodeLensProvider } from '../../src/code-lens'
+import { createTextDocument } from '../helpers'
 
 describe('code lens', () => {
     it('creates run lenses for top-level functions and class methods', () => {

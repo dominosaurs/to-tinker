@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     buildResultViewModel,
     formatMode,
-} from '../src/core/present/result-view-model'
+} from '../../../src/core/present/result-view-model'
 
 describe('result view model', () => {
     it('builds contextual title and labels for selected code runs', () => {

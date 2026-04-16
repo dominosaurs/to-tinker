@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import type {
     FunctionInfo,
     MethodInfo,
-} from '../src/core/discovery/callable-discovery'
+} from '../../../src/core/discovery/callable-discovery'
 import {
     resolveFunctionArguments,
     resolveMethodArguments,
-} from '../src/core/prepare/resolve-run-arguments'
+} from '../../../src/core/prepare/resolve-run-arguments'
 
 describe('resolve run arguments', () => {
     it('prompts only unresolved method parameters', async () => {
