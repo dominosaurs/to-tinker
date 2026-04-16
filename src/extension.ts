@@ -2,21 +2,8 @@ import * as vscode from 'vscode'
 import { ToTinkerCodeLensProvider } from './code-lens'
 import { COMMANDS, type RunMode } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
-import {
-    extractFile,
-    extractPrefixToLine,
-    extractPrefixToSelectionEnd,
-    extractSelection,
-    type FunctionInfo,
-    findFunctionAtPosition,
-    findFunctionMatchingSelection,
-    findFunctions,
-    findMethodAtPosition,
-    findMethodMatchingSelection,
-    findMethods,
-    type MethodInfo,
-    parseSelectedFunctionDeclaration,
-} from './extraction'
+import { planRun } from './core/plan/plan-run'
+import type { FunctionInfo, MethodInfo } from './extraction'
 import { Log } from './log'
 import { Output } from './output'
 import { promptForParameter } from './php'
@@ -117,218 +104,39 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
         const config = getConfig()
         const sandboxEnabled = config.sandbox.defaultEnabled
 
-        let method: MethodInfo | undefined
-        let callableFunction: FunctionInfo | undefined
-        let payload: string
-        let sourceCode: string | undefined
-        let sourceLineStart: number | undefined
-        let sourceLineEnd: number | undefined
-        let resolvedMode = mode
-        let selectedFunctionDeclarationSource: string | undefined
-
-        switch (mode) {
-            case 'selection':
-                if (editor.selections.length !== 1) {
-                    throw new Error('Multiple selections are not supported.')
-                }
-                method = findMethodMatchingSelection(document, editor.selection)
-                if (method) {
-                    resolvedMode = 'method'
-                    sourceCode = document
-                        .getText()
-                        .slice(method.start, method.end + 1)
-                    sourceLineStart = document.positionAt(method.start).line + 1
-                    sourceLineEnd = document.positionAt(method.end).line + 1
-                    payload = buildMethodPayload({
-                        fakeStorage: config.sandbox.fakeStorage,
-                        filePath: document.uri.fsPath,
-                        method,
-                        promptedArguments: await resolveMethodArguments(method),
-                        sandboxEnabled,
-                    })
-                    break
-                }
-                {
-                    const matchedTopLevelFunction =
-                        findFunctionMatchingSelection(
-                            document,
-                            editor.selection,
-                        )
-                    const matchedSelectedDeclaration =
-                        parseSelectedFunctionDeclaration(
-                            document,
-                            editor.selection,
-                        )
-                    callableFunction =
-                        matchedTopLevelFunction ?? matchedSelectedDeclaration
-                    selectedFunctionDeclarationSource =
-                        matchedTopLevelFunction || !matchedSelectedDeclaration
-                            ? undefined
-                            : extractSelection(document, editor.selection)
-                }
-                if (callableFunction) {
-                    resolvedMode = 'function'
-                    sourceCode = document
-                        .getText()
-                        .slice(callableFunction.start, callableFunction.end + 1)
-                    sourceLineStart =
-                        document.positionAt(callableFunction.start).line + 1
-                    sourceLineEnd =
-                        document.positionAt(callableFunction.end).line + 1
-                    payload = buildFunctionPayload({
-                        callableFunction,
-                        fakeStorage: config.sandbox.fakeStorage,
-                        filePath: document.uri.fsPath,
-                        functionDeclarationSource:
-                            selectedFunctionDeclarationSource,
-                        promptedArguments:
-                            await resolveFunctionArguments(callableFunction),
-                        sandboxEnabled,
-                    })
-                    break
-                }
-                {
-                    const enclosingCallable =
-                        findEnclosingMethod(document, editor.selection.end) ??
-                        findEnclosingFunction(document, editor.selection.end)
-                    if (enclosingCallable) {
-                        sourceCode = extractSelection(
-                            document,
-                            editor.selection,
-                        )
-                        sourceLineStart = editor.selection.start.line + 1
-                        sourceLineEnd = editor.selection.end.line + 1
-                        payload = buildTinkerPayload({
-                            fakeStorage: config.sandbox.fakeStorage,
-                            filePath: document.uri.fsPath,
-                            sandboxEnabled,
-                            selectionOrFileCode: sourceCode,
-                            smartCapture: true,
-                        })
-                        break
-                    }
-                }
-
-                sourceCode = extractPrefixToSelectionEnd(
-                    document,
-                    editor.selection,
-                )
-                sourceLineStart = 1
-                sourceLineEnd = editor.selection.end.line + 1
-                payload = buildTinkerPayload({
-                    fakeStorage: config.sandbox.fakeStorage,
-                    filePath: document.uri.fsPath,
-                    sandboxEnabled,
-                    selectionOrFileCode: sourceCode,
-                    smartCapture: true,
-                })
-                break
-            case 'file':
-                sourceCode = extractFile(document)
-                sourceLineStart = 1
-                sourceLineEnd = document.lineCount
-                payload = buildTinkerPayload({
-                    fakeStorage: config.sandbox.fakeStorage,
-                    filePath: document.uri.fsPath,
-                    sandboxEnabled,
-                    selectionOrFileCode: sourceCode,
-                    smartCapture: true,
-                })
-                break
-            case 'line': {
-                const lineNumber = editor.selection.active.line
-                const enclosingCallable =
-                    findEnclosingMethod(document, editor.selection.active) ??
-                    findEnclosingFunction(document, editor.selection.active)
-                if (enclosingCallable) {
-                    sourceCode = extractSelection(
-                        document,
-                        new vscode.Selection(
-                            new vscode.Position(lineNumber, 0),
-                            document.lineAt(lineNumber).range.end,
-                        ),
-                    )
-                    sourceLineStart = lineNumber + 1
-                    sourceLineEnd = lineNumber + 1
-                    payload = buildTinkerPayload({
-                        fakeStorage: config.sandbox.fakeStorage,
-                        filePath: document.uri.fsPath,
-                        sandboxEnabled,
-                        selectionOrFileCode: sourceCode,
-                        smartCapture: true,
-                    })
-                    break
-                }
-                sourceCode = extractPrefixToLine(
-                    document,
-                    editor.selection.active,
-                )
-                sourceLineStart = 1
-                sourceLineEnd = lineNumber + 1
-                payload = buildTinkerPayload({
-                    fakeStorage: config.sandbox.fakeStorage,
-                    filePath: document.uri.fsPath,
-                    sandboxEnabled,
-                    selectionOrFileCode: sourceCode,
-                    smartCapture: true,
-                })
-                break
-            }
-            case 'method':
-                method = findMethodAtPosition(
-                    document,
-                    resolveMethodPosition(editor, target),
-                )
-                sourceCode = document
-                    .getText()
-                    .slice(method.start, method.end + 1)
-                sourceLineStart = document.positionAt(method.start).line + 1
-                sourceLineEnd = document.positionAt(method.end).line + 1
-                payload = buildMethodPayload({
-                    fakeStorage: config.sandbox.fakeStorage,
-                    filePath: document.uri.fsPath,
-                    method,
-                    promptedArguments: await resolveMethodArguments(method),
-                    sandboxEnabled,
-                })
-                break
-            case 'function':
-                callableFunction = findFunctionAtPosition(
-                    document,
-                    resolveMethodPosition(editor, target),
-                )
-                sourceCode = document
-                    .getText()
-                    .slice(callableFunction.start, callableFunction.end + 1)
-                sourceLineStart =
-                    document.positionAt(callableFunction.start).line + 1
-                sourceLineEnd =
-                    document.positionAt(callableFunction.end).line + 1
-                payload = buildFunctionPayload({
-                    callableFunction,
-                    fakeStorage: config.sandbox.fakeStorage,
-                    filePath: document.uri.fsPath,
-                    promptedArguments:
-                        await resolveFunctionArguments(callableFunction),
-                    sandboxEnabled,
-                })
-                break
-            default:
-                throw new Error(`Unsupported run mode: ${String(mode)}`)
+        const planned = planRun({
+            document,
+            requestedMode: mode,
+            selection: editor.selection,
+            selectionsCount: editor.selections.length,
+            targetPosition: resolveMethodPosition(editor, target),
+        })
+        if (!planned.ok) {
+            throw new Error(planned.error.message)
         }
+        const plan = planned.plan
+
+        const method = plan.strategy === 'method' ? plan.method : undefined
+        const callableFunction =
+            plan.strategy === 'function' ? plan.callableFunction : undefined
+        const payload = await buildPayload(plan, {
+            fakeStorage: config.sandbox.fakeStorage,
+            filePath: document.uri.fsPath,
+            sandboxEnabled,
+        })
 
         const result = await executeTinker(
             {
                 callableFunction,
                 filePath: document.uri.fsPath,
                 method,
-                mode: resolvedMode,
+                mode: plan.mode,
                 payload,
                 phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
-                sourceCode,
-                sourceLineEnd,
-                sourceLineStart,
+                sourceCode: plan.sourceCode,
+                sourceLineEnd: plan.sourceLineEnd,
+                sourceLineStart: plan.sourceLineStart,
                 workspace: environment.workspace,
             },
             output,
@@ -341,13 +149,13 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                 callableFunction,
                 filePath: document.uri.fsPath,
                 method,
-                mode: resolvedMode,
+                mode: plan.mode,
                 payload,
                 phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
-                sourceCode,
-                sourceLineEnd,
-                sourceLineStart,
+                sourceCode: plan.sourceCode,
+                sourceLineEnd: plan.sourceLineEnd,
+                sourceLineStart: plan.sourceLineStart,
                 workspace: environment.workspace,
             },
             result,
@@ -383,6 +191,45 @@ async function toggleSandbox(): Promise<void> {
     void vscode.window.showInformationMessage(
         `To Tinker sandbox ${enabled ? 'enabled' : 'disabled'}.`,
     )
+}
+
+async function buildPayload(
+    plan: import('./core/types/run-plan').RunPlan,
+    context: {
+        fakeStorage: boolean
+        filePath: string
+        sandboxEnabled: boolean
+    },
+): Promise<string> {
+    switch (plan.strategy) {
+        case 'eval':
+            return buildTinkerPayload({
+                fakeStorage: context.fakeStorage,
+                filePath: context.filePath,
+                sandboxEnabled: context.sandboxEnabled,
+                selectionOrFileCode: plan.sourceCode,
+                smartCapture: plan.smartCapture,
+            })
+        case 'method':
+            return buildMethodPayload({
+                fakeStorage: context.fakeStorage,
+                filePath: context.filePath,
+                method: plan.method,
+                promptedArguments: await resolveMethodArguments(plan.method),
+                sandboxEnabled: context.sandboxEnabled,
+            })
+        case 'function':
+            return buildFunctionPayload({
+                callableFunction: plan.callableFunction,
+                fakeStorage: context.fakeStorage,
+                filePath: context.filePath,
+                functionDeclarationSource: plan.functionDeclarationSource,
+                promptedArguments: await resolveFunctionArguments(
+                    plan.callableFunction,
+                ),
+                sandboxEnabled: context.sandboxEnabled,
+            })
+    }
 }
 
 async function resolveMethodArguments(
@@ -457,32 +304,4 @@ function resolveMethodPosition(
     }
 
     return editor.selection.active
-}
-
-function findEnclosingMethod(
-    document: vscode.TextDocument,
-    position: vscode.Position,
-): MethodInfo | undefined {
-    const cursorOffset = document.offsetAt(position)
-    return findMethods(document)
-        .filter(
-            method =>
-                cursorOffset >= method.start && cursorOffset <= method.end,
-        )
-        .sort((left, right) => left.start - right.start)
-        .at(-1)
-}
-
-function findEnclosingFunction(
-    document: vscode.TextDocument,
-    position: vscode.Position,
-): FunctionInfo | undefined {
-    const cursorOffset = document.offsetAt(position)
-    return findFunctions(document)
-        .filter(
-            callable =>
-                cursorOffset >= callable.start && cursorOffset <= callable.end,
-        )
-        .sort((left, right) => left.start - right.start)
-        .at(-1)
 }
