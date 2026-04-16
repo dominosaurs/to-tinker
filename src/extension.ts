@@ -157,7 +157,7 @@ async function runPrimary(): Promise<void> {
         return
     }
 
-    const mode = editor.selection.isEmpty ? 'file' : 'selection'
+    const mode = editor.selection.isEmpty ? 'line' : 'selection'
     await executeRun(mode, undefined)
 }
 

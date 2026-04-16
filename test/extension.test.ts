@@ -271,7 +271,7 @@ class Runner {
         )
     })
 
-    it('runs the current file when primary command is used without a selection', async () => {
+    it('runs the current line when primary command is used without a selection', async () => {
         const document = createTextDocument('<?php\n$foo = 1;\n')
         const cursor = new vscode.Selection(
             new vscode.Position(1, 0),
@@ -301,7 +301,7 @@ class Runner {
         )
         expect(executeTinker).toHaveBeenCalledWith(
             expect.objectContaining({
-                mode: 'file',
+                mode: 'line',
             }),
             expect.anything(),
             expect.anything(),

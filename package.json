@@ -49,6 +49,7 @@
                 "category": "To Tinker",
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
+                "icon": "$(play-all)",
                 "title": "Run File"
             },
             {
@@ -116,9 +117,9 @@
                     "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
                 },
                 {
-                    "command": "toTinker.runLine",
+                    "command": "toTinker.runFile",
                     "group": "navigation@1",
-                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor && !editorHasSelection"
+                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
                 }
             ]
         }
