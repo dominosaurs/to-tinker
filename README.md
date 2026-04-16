@@ -2,16 +2,35 @@
 
 Run any PHP or Laravel code in one click from VS Code ⚡
 
-To Tinker is a VS Code extension that lets you run selected PHP, full files, and class methods without leaving the editor. It uses Laravel Tinker under the hood so you can execute real application code fast, with less setup and less context switching.
+To Tinker is a VS Code extension for Laravel and PHP developers who want to run real application code without opening a terminal, starting Tinker manually, or creating temporary routes, commands, and tests just to inspect a value.
+
+It runs through `php artisan tinker`, stays inside your Laravel app context, and lets you execute lines, selections, files, methods, and functions directly from the editor.
 
 ## ✨ Features
 
-- ✂️ Run selections with smart expression capture
-- 📍 Run current line from editor title bar
-- 📄 Run full PHP files inside Laravel app
-- 🧠 Run class methods with CodeLens support
-- 🖥️ Show results in dedicated side panel
-- 🛡️ Toggle sandbox on or off when needed
+- ⚡ Run PHP and Laravel code where you write it, without jumping to a terminal
+- ✂️ Run a selection, current line, or the whole file with smart last-value output
+- 🧠 Run methods and functions directly from the editor with CodeLens and callable detection
+- 🔁 Execute real Laravel app context through `php artisan tinker`, not a fake mini runtime
+- 🖥️ See output in a dedicated result panel built for readable values, errors, and source context
+- 🛡️ Stay safe by default with sandboxing, then switch to real side effects only when you mean it
+
+## ⚙️ How It Works
+
+- To Tinker runs your code through `php artisan tinker` inside the active Laravel workspace
+- `Run File` executes the whole file and prints the final meaningful value
+- `Run Line` and `Run Selection` are context-aware and try to print the value you actually care about
+- Selecting a full function or method declaration promotes the run into callable mode instead of just evaluating raw source
+- Results appear in a dedicated side panel with output, errors, elapsed time, and source context
+- Dirty files are saved automatically before a run starts
+
+## 🎯 Best For
+
+- Checking the return value of helpers, queries, and service calls
+- Trying Eloquent queries without switching to a terminal
+- Inspecting formatted values while refactoring PHP code
+- Running a method or function in real Laravel app context
+- Quickly validating an idea before writing a test
 
 ## 📋 Requirements
 
@@ -29,6 +48,17 @@ Most Laravel developers eventually do the same awkward loop:
 - or create a temporary route, command, controller action, or test just to try something quickly
 
 To Tinker exists to remove that friction. It gives you a one-click way to run PHP and Laravel code directly from VS Code while still using Laravel Tinker as the execution path.
+
+## 🧭 Execution Model
+
+- `Run File` means: run the whole file and print the last meaningful value
+- `Run Line` means: usually run everything so far through the current line, then print the final value
+- `Run Selection` means: usually run everything so far through the end of the selection, then print the final value
+- Inside functions and methods, line and partial selection runs fall back to snippet-only smart capture so incomplete callable context does not break execution
+- Whole function selections run as functions
+- Whole method selections run as methods
+- Final value capture understands plain expressions, assignments, chained assignments, compound assignments, and increment/decrement expressions
+- Comments are ignored structurally for final-value detection
 
 ## 🛡️ Safety model
 
