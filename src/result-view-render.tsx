@@ -10,6 +10,7 @@ import type { ComponentChildren, JSX } from 'preact'
 import renderToString from 'preact-render-to-string'
 import type { ThemedTokenWithVariants } from 'shiki'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
+import { buildResultViewModel } from './core/present/result-view-model'
 import type { AppInfo, RunReport } from './result-view-types'
 
 const shiki = createSingletonShorthands(
@@ -48,11 +49,14 @@ interface ViewModel {
     error?: string
     fileLabel: string
     mode: string
+    modeLabel: string
     notice?: string
     output?: HighlightLine[]
     sandboxLabel: string
+    sandboxTone: 'alert' | 'muted'
     source?: HighlightLine[]
     sourceLineStart?: number
+    statusClassName: string
     statusLabel: string
     targetLabel: string
     title: string
@@ -74,41 +78,32 @@ async function toViewModel(
     report: RunReport,
     appInfo: AppInfo,
 ): Promise<ViewModel> {
-    const { summary } = report
-    const diagnostics = [report.diagnostics?.trim(), report.stderr?.trim()]
-        .filter(Boolean)
-        .join('\n')
+    const model = buildResultViewModel(report, appInfo)
 
     return {
-        appLabel: `${appInfo.name} v${appInfo.version}`,
-        elapsed: extractElapsed(diagnostics),
-        error: report.error,
-        fileLabel: `${shortPath(summary.filePath, summary.rootPath)}${formatLineRange(summary.sourceLineStart, summary.sourceLineEnd)}`,
-        mode: summary.mode,
-        notice: stripElapsed(diagnostics) || undefined,
-        output: report.result
+        appLabel: model.appLabel,
+        elapsed: model.elapsed,
+        error: model.error,
+        fileLabel: model.fileLabel,
+        mode: model.mode,
+        modeLabel: model.modeLabel,
+        notice: model.notice,
+        output: model.outputText
             ? await highlightLines(
-                  report.result,
-                  detectLanguage(summary.mode, report.result, false),
+                  model.outputText,
+                  detectLanguage(model.mode, model.outputText, false),
               )
             : undefined,
-        sandboxLabel: summary.sandboxEnabled ? 'sandbox' : 'no sandbox',
-        source: summary.sourceCode
-            ? await highlightLines(summary.sourceCode, 'php')
+        sandboxLabel: model.sandboxLabel,
+        sandboxTone: model.sandboxTone,
+        source: model.sourceText
+            ? await highlightLines(model.sourceText, 'php')
             : undefined,
-        sourceLineStart: summary.sourceLineStart,
-        statusLabel: report.status === 'success' ? 'success' : report.status,
-        targetLabel:
-            summary.mode === 'method' && summary.methodName
-                ? `${summary.className ?? '?'}::${summary.methodName}`
-                : summary.mode === 'function' && summary.functionName
-                  ? summary.functionName
-                  : basename(summary.filePath),
-        title: formatDocumentTitle(
-            report.status,
-            summary.mode,
-            summary.filePath,
-        ),
+        sourceLineStart: model.sourceLineStart,
+        statusClassName: model.statusClassName,
+        statusLabel: model.statusLabel,
+        targetLabel: model.targetLabel,
+        title: model.title,
     }
 }
 
@@ -162,29 +157,19 @@ function Header({ view }: { view: ViewModel }): JSX.Element {
         <div class="top">
             <div class="app-line">{view.appLabel}</div>
             <div class="status-line">
-                <span class={`status-${view.statusLabel}`}>
-                    {view.statusLabel}
-                </span>
+                <span class={view.statusClassName}>{view.statusLabel}</span>
                 {view.elapsed ? (
                     <span class="elapsed">{view.elapsed}</span>
                 ) : null}
-                <span
-                    class={
-                        view.sandboxLabel === 'no sandbox'
-                            ? 'chip chip-alert'
-                            : 'chip chip-muted'
-                    }
-                >
-                    {view.sandboxLabel === 'no sandbox'
-                        ? '⚠ no sandbox'
-                        : view.sandboxLabel}
+                <span class={`chip chip-${view.sandboxTone}`}>
+                    {view.sandboxLabel}
                 </span>
             </div>
             <div class="meta-stack">
                 <div class="meta-row">
                     <span class="meta-label">Mode</span>
                     <span class="meta-value meta-value-mode">
-                        {formatMode(view.mode)}
+                        {view.modeLabel}
                     </span>
                 </div>
                 <div class="meta-row">
@@ -542,38 +527,6 @@ function renderTokenHtml(token: HighlightToken): string {
     return `<span ${attrs.join(' ')}>${escapeHtml(token.content)}</span>`
 }
 
-function shortPath(filePath: string, rootPath: string): string {
-    return filePath.startsWith(rootPath)
-        ? filePath.slice(rootPath.length + 1)
-        : filePath
-}
-
-function basename(filePath: string): string {
-    const normalized = filePath.replaceAll('\\', '/')
-    return normalized.split('/').at(-1) || filePath
-}
-
-function extractElapsed(value: string): string | undefined {
-    const match = value.match(/elapsed_ms=(\d+)/)
-    return match ? `${match[1]} ms` : undefined
-}
-
-function stripElapsed(value: string): string {
-    return value.replace(/(^|\n)elapsed_ms=\d+(\n|$)/g, '\n').trim()
-}
-
-function formatLineRange(start?: number, end?: number): string {
-    if (!start) {
-        return ''
-    }
-
-    if (!end || end === start) {
-        return `:${start}`
-    }
-
-    return `:${start}-${end}`
-}
-
 function detectLanguage(
     mode: string,
     value: string,
@@ -592,32 +545,6 @@ function detectLanguage(
     }
 
     return 'text'
-}
-
-function formatMode(value: string): string {
-    switch (value) {
-        case 'selection':
-            return 'Selected Code'
-        case 'line':
-            return 'Line'
-        case 'file':
-            return 'File'
-        case 'method':
-            return 'Method'
-        case 'function':
-            return 'Function'
-        default:
-            return value.charAt(0).toUpperCase() + value.slice(1)
-    }
-}
-
-function formatDocumentTitle(
-    status: RunReport['status'],
-    mode: string,
-    filePath: string,
-): string {
-    const statusLabel = status === 'success' ? 'Success' : formatMode(status)
-    return `${statusLabel} · ${formatMode(mode)} · ${basename(filePath)}`
 }
 
 function escapeHtml(value: string): string {
