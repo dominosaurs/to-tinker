@@ -1,41 +1,27 @@
-import { type ChildProcess, spawn } from 'node:child_process'
 import * as vscode from 'vscode'
-import { stripAnsi } from './ansi'
-import type { RunMode } from './commands'
-import { getConfig } from './config'
-import type { FunctionInfo, MethodInfo } from './extraction'
+import { runExecutionProcess } from './core/execute/execution-runner'
+import {
+    buildExecutionReport,
+    buildRunningReport,
+} from './core/present/report-builder'
+import type { ExecutionRequest, ExecutionResult } from './core/types/execution'
 import type { Log } from './log'
-import type { Output, RunSummary } from './output'
-import type { LaravelWorkspace } from './workspace'
-
-export interface ExecutionRequest {
-    workspace: LaravelWorkspace
-    phpExecutable: string
-    mode: RunMode
-    payload: string
-    filePath: string
-    sandboxEnabled: boolean
-    sourceCode?: string
-    sourceLineStart?: number
-    sourceLineEnd?: number
-    method?: MethodInfo
-    callableFunction?: FunctionInfo
-}
-
-export interface ExecutionResult {
-    stdout: string
-    stderr: string
-    timedOut: boolean
-}
+import type { Output } from './output'
 
 export class RunRegistry {
-    private readonly activeRoots = new Map<string, ChildProcess>()
+    private readonly activeRoots = new Map<
+        string,
+        import('node:child_process').ChildProcess
+    >()
 
     has(rootPath: string): boolean {
         return this.activeRoots.has(rootPath)
     }
 
-    start(rootPath: string, process: ChildProcess): void {
+    start(
+        rootPath: string,
+        process: import('node:child_process').ChildProcess,
+    ): void {
         this.activeRoots.set(rootPath, process)
     }
 
@@ -58,96 +44,8 @@ export async function executeTinker(
     registry: RunRegistry,
     log: Log,
 ): Promise<ExecutionResult> {
-    if (registry.has(request.workspace.rootPath)) {
-        log.info(
-            `run blocked: active process for ${request.workspace.rootPath}`,
-        )
-        throw new Error(
-            `A To Tinker run is already active for ${request.workspace.rootPath}.`,
-        )
-    }
-
-    const config = getConfig()
-    const timeoutMs = config.timeoutSeconds * 1000
-    log.info(
-        `spawn start mode=${request.mode} sandbox=${request.sandboxEnabled ? 'on' : 'off'} root=${request.workspace.rootPath}`,
-    )
-    await output.show({
-        diagnostics: `root=${request.workspace.rootPath}`,
-        status: 'running',
-        summary: buildSummary(request),
-    })
-
-    return await new Promise<ExecutionResult>((resolve, reject) => {
-        const child = spawn(
-            request.phpExecutable,
-            [
-                request.workspace.artisanPath,
-                'tinker',
-                '--no-ansi',
-                '--execute',
-                request.payload,
-            ],
-            {
-                cwd: request.workspace.rootPath,
-                shell: false,
-                stdio: ['ignore', 'pipe', 'pipe'],
-            },
-        )
-
-        registry.start(request.workspace.rootPath, child)
-        log.info(`spawned pid=${child.pid ?? 'unknown'}`)
-
-        let stdout = ''
-        let stderr = ''
-        let timedOut = false
-        let finished = false
-
-        const complete = (handler: () => void): void => {
-            if (finished) {
-                return
-            }
-
-            finished = true
-            clearTimeout(timeoutHandle)
-            registry.end(request.workspace.rootPath)
-            log.info(`run complete pid=${child.pid ?? 'unknown'}`)
-            handler()
-        }
-
-        const timeoutHandle = setTimeout(() => {
-            timedOut = true
-            log.info(
-                `timeout pid=${child.pid ?? 'unknown'} after ${timeoutMs}ms`,
-            )
-            child.kill('SIGKILL')
-        }, timeoutMs)
-
-        child.stdout.on('data', (chunk: Buffer | string) => {
-            stdout += chunk.toString()
-        })
-
-        child.stderr.on('data', (chunk: Buffer | string) => {
-            stderr += chunk.toString()
-        })
-
-        child.on('error', error => {
-            log.info(`process error: ${error.message}`)
-            complete(() => reject(error))
-        })
-        child.on('close', code => {
-            log.info(
-                `process close pid=${child.pid ?? 'unknown'} code=${code ?? 'null'} stdout=${stdout.length} stderr=${stderr.length}`,
-            )
-            complete(() =>
-                resolve({
-                    stderr: stripAnsi(stderr),
-                    stdout: stripAnsi(stdout),
-                    timedOut,
-                }),
-            )
-        })
-    })
+    await output.show(buildRunningReport(request))
+    return await runExecutionProcess(request, registry, log)
 }
 
 export async function renderExecutionReport(
@@ -155,82 +53,9 @@ export async function renderExecutionReport(
     result: ExecutionResult,
     output: Output,
 ): Promise<void> {
-    const summary = buildSummary(request)
-
-    if (result.timedOut) {
-        await output.show({
-            diagnostics: normalizeDiagnostics(result.stderr),
-            error: 'Execution timed out before Laravel Tinker returned a result.',
-            status: 'timeout',
-            summary,
-        })
-        void vscode.window.showErrorMessage(
-            `To Tinker run timed out after ${getConfig().timeoutSeconds} seconds.`,
-        )
-        return
-    }
-
-    const stdout = result.stdout
-    const resultMarker = '__TO_TINKER_RESULT__\n'
-    const errorMarker = '__TO_TINKER_ERROR__\n'
-    const diagnosticsMarker = '\n__TO_TINKER_DIAGNOSTICS__\n'
-
-    if (stdout.includes(errorMarker)) {
-        const [errorBody = '', diagnosticsBody = ''] =
-            stdout.split(errorMarker)[1]?.split(diagnosticsMarker) ?? []
-        await output.show({
-            diagnostics: normalizeDiagnostics(
-                [diagnosticsBody, result.stderr].join('\n'),
-            ),
-            error: errorBody.trim() || 'Execution failed.',
-            status: 'error',
-            summary,
-        })
-        void vscode.window.showErrorMessage(
-            'To Tinker execution failed. See output channel.',
-        )
-        return
-    }
-
-    if (!stdout.includes(resultMarker)) {
-        await output.show({
-            diagnostics: normalizeDiagnostics(result.stderr),
-            result: stdout.trim() || 'null',
-            status: 'success',
-            summary,
-        })
-        return
-    }
-
-    const [resultBody = '', diagnosticsBody = ''] =
-        stdout.split(resultMarker)[1]?.split(diagnosticsMarker) ?? []
-    await output.show({
-        diagnostics: normalizeDiagnostics(
-            [diagnosticsBody, result.stderr].join('\n'),
-        ),
-        result: resultBody.trim() || 'null',
-        status: 'success',
-        summary,
-    })
-}
-
-function normalizeDiagnostics(value: string): string {
-    const text = value.trim()
-    return text || 'none'
-}
-
-function buildSummary(request: ExecutionRequest): RunSummary {
-    return {
-        className: request.method?.className,
-        filePath: request.filePath,
-        functionName: request.callableFunction?.functionName,
-        methodName: request.method?.methodName,
-        mode: request.mode,
-        phpExecutable: request.phpExecutable,
-        rootPath: request.workspace.rootPath,
-        sandboxEnabled: request.sandboxEnabled,
-        sourceCode: request.sourceCode,
-        sourceLineEnd: request.sourceLineEnd,
-        sourceLineStart: request.sourceLineStart,
+    const built = buildExecutionReport(request, result)
+    await output.show(built.report)
+    if (built.userMessage) {
+        void vscode.window.showErrorMessage(built.userMessage)
     }
 }
