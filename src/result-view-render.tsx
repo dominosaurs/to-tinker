@@ -47,11 +47,8 @@ interface ViewModel {
     error?: string
     fileLabel: string
     kind: string
-    nextSteps: string[]
     notice?: string
     output?: HighlightLine[]
-    phpLabel?: string
-    rootLabel: string
     sandboxLabel: string
     source?: HighlightLine[]
     sourceLineStart?: number
@@ -76,7 +73,6 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
         error: report.error,
         fileLabel: `${shortPath(summary.filePath, summary.rootPath)}${formatLineRange(summary.sourceLineStart, summary.sourceLineEnd)}`,
         kind: summary.kind,
-        nextSteps: buildNextSteps(report, diagnostics),
         notice: stripElapsed(diagnostics) || undefined,
         output: report.result
             ? await highlightLines(
@@ -84,8 +80,6 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
                   detectLanguage(summary.kind, report.result, false),
               )
             : undefined,
-        phpLabel: summary.phpExecutable,
-        rootLabel: summary.rootPath,
         sandboxLabel: summary.sandboxEnabled ? 'sandbox' : 'no sandbox',
         source: summary.sourceCode
             ? await highlightLines(summary.sourceCode, 'php')
@@ -113,22 +107,6 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
             </head>
             <body>
                 <Header view={view} />
-                {view.nextSteps.length > 0 ? (
-                    <Section title="Next">
-                        <ul class="tips">
-                            {view.nextSteps.map(step => (
-                                <li>{step}</li>
-                            ))}
-                        </ul>
-                    </Section>
-                ) : null}
-                {view.output ? (
-                    <Section title="Output">
-                        <div class="block result">
-                            <HighlightedPre lines={view.output} />
-                        </div>
-                    </Section>
-                ) : null}
                 {view.source ? (
                     <details>
                         <summary>Source</summary>
@@ -140,12 +118,19 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
                         </div>
                     </details>
                 ) : null}
-                {view.error ? (
-                    <Section title="Error">
-                        <div class="block">
-                            <pre>{view.error}</pre>
+
+                {view.output ? (
+                    <Section title="Output">
+                        <div class="block result">
+                            <HighlightedPre lines={view.output} />
                         </div>
                     </Section>
+                ) : null}
+
+                {view.error ? (
+                    <div class="notice notice-error">
+                        <pre>{view.error}</pre>
+                    </div>
                 ) : null}
                 {view.notice ? <div class="notice">{view.notice}</div> : null}
             </body>
@@ -157,51 +142,43 @@ function Header({ view }: { view: ViewModel }): JSX.Element {
     return (
         <div class="top">
             <div class="status-line">
-                <span class="chip chip-muted">{view.sandboxLabel}</span>
-                <span class="chip chip-muted">{capitalize(view.kind)}</span>
                 <span class={`status-${view.statusLabel}`}>
                     {view.statusLabel}
                 </span>
                 {view.elapsed ? (
                     <span class="elapsed">{view.elapsed}</span>
                 ) : null}
+                <span
+                    class={
+                        view.sandboxLabel === 'no sandbox'
+                            ? 'chip chip-alert'
+                            : 'chip chip-muted'
+                    }
+                >
+                    {view.sandboxLabel === 'no sandbox'
+                        ? '⚠ no sandbox'
+                        : view.sandboxLabel}
+                </span>
             </div>
-            <KindTabs activeKind={view.kind} />
-            <div class="meta-grid">
-                <Meta label="Target" value={view.targetLabel} />
-                <Meta label="File" value={view.fileLabel} />
-                <Meta label="Workspace Root" value={view.rootLabel} />
-                {view.phpLabel ? (
-                    <Meta label="PHP" value={view.phpLabel} />
+            <div class="meta-stack">
+                <div class="meta-row">
+                    <span class="meta-label">Kind</span>
+                    <span class="meta-value meta-value-kind">
+                        {formatKind(view.kind)}
+                    </span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">File</span>
+                    <span class="meta-value">{view.fileLabel}</span>
+                </div>
+                {view.kind === 'method' ? (
+                    <div class="meta-row">
+                        <span class="meta-label">Target</span>
+                        <span class="meta-value">{view.targetLabel}</span>
+                    </div>
                 ) : null}
             </div>
         </div>
-    )
-}
-
-function Meta({ label, value }: { label: string; value: string }): JSX.Element {
-    return (
-        <div class="meta-item">
-            <span class="meta-label">{label}</span>
-            <span class="meta-value">{value}</span>
-        </div>
-    )
-}
-
-function KindTabs({ activeKind }: { activeKind: string }): JSX.Element {
-    const kinds = ['file', 'line', 'method', 'selection']
-
-    return (
-        <>
-            {kinds.map((kind, index) => (
-                <SpanGroup key={kind}>
-                    {index > 0 ? <span class="kind"> | </span> : null}
-                    <span class={kind === activeKind ? 'kind-active' : 'kind'}>
-                        {capitalize(kind)}
-                    </span>
-                </SpanGroup>
-            ))}
-        </>
     )
 }
 
@@ -368,7 +345,7 @@ function styles(): string {
             gap: 10px;
             align-items: center;
             flex-wrap: wrap;
-            margin-bottom: 4px;
+            margin-bottom: 10px;
         }
         .elapsed {
             color: var(--muted);
@@ -384,51 +361,75 @@ function styles(): string {
         }
         .chip-muted {
             color: var(--muted);
-            background: color-mix(in srgb, var(--code-bg) 70%, transparent 30%);
+            border-color: color-mix(in srgb, var(--border) 55%, transparent 45%);
+            background: transparent;
+            opacity: 0.72;
         }
-        .status-success { color: var(--ok); font-weight: 700; }
-        .status-error { color: var(--error); font-weight: 700; }
-        .status-running { color: var(--run); font-weight: 700; }
-        .status-timeout { color: var(--timeout); font-weight: 700; }
-        .kind { color: var(--muted); }
-        .kind-active { color: var(--info); font-weight: 700; }
-        .meta-grid {
+        .chip-alert {
+            color: #ffd8a8;
+            border-color: color-mix(in srgb, var(--notice) 55%, var(--border) 45%);
+            background: color-mix(in srgb, var(--notice) 18%, var(--code-bg) 82%);
+            opacity: 1;
+        }
+        .status-success { color: var(--ok); font-weight: 400; }
+        .status-error { color: var(--error); font-weight: 400; }
+        .status-running { color: var(--run); font-weight: 400; }
+        .status-timeout { color: var(--timeout); font-weight: 400; }
+        .status-success,
+        .status-error,
+        .status-running,
+        .status-timeout {
+            font-size: 15px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .meta-stack {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
+            gap: 6px;
             margin-top: 12px;
         }
-        .meta-item {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 12px;
-            background: color-mix(in srgb, var(--code-bg) 65%, transparent 35%);
+        .meta-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: baseline;
         }
         .meta-label {
-            display: block;
             color: var(--muted);
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            margin-bottom: 3px;
+            min-width: 88px;
         }
         .meta-value {
-            display: block;
             font-size: 13px;
             word-break: break-word;
+        }
+        .meta-value-kind {
+            color: var(--info);
+            font-weight: 700;
         }
         .notice {
             margin-top: 18px;
             color: var(--notice);
             font-size: 12px;
+            border: 1px solid color-mix(in srgb, var(--notice) 40%, var(--border) 60%);
+            border-radius: 10px;
+            padding: 12px 14px;
+            background: color-mix(in srgb, var(--code-bg) 78%, transparent 22%);
+            white-space: pre-wrap;
+            word-break: break-word;
         }
-        .tips {
-            margin: 0 0 18px;
-            padding-left: 18px;
-            color: var(--muted);
+        .notice pre {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            color: inherit;
+            font: 13px/1.45 var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
         }
-        .tips li + li {
-            margin-top: 6px;
+        .notice-error {
+            color: var(--error);
+            border-color: color-mix(in srgb, var(--error) 45%, var(--border) 55%);
         }
         .block {
             overflow: auto;
@@ -566,69 +567,7 @@ function detectLanguage(
     return 'text'
 }
 
-function buildNextSteps(report: RunReport, diagnostics: string): string[] {
-    const details = `${report.error ?? ''}\n${diagnostics}`.toLowerCase()
-    const steps: string[] = []
-
-    if (report.status === 'running') {
-        return [
-            'Wait for Laravel Tinker to finish, or trigger another run after the current one completes.',
-        ]
-    }
-
-    if (report.status === 'timeout') {
-        steps.push(
-            'Increase toTinker.timeoutSeconds if this code path is expected to take longer.',
-        )
-        steps.push(
-            'Reduce the amount of work in the selection or method to isolate the slow step.',
-        )
-    }
-
-    if (details.includes('unresolved parameter')) {
-        steps.push(
-            'Run the method again and provide a PHP expression for each unresolved scalar parameter.',
-        )
-    }
-
-    if (details.includes('uninitialized property')) {
-        steps.push(
-            'Prefer a method whose dependencies are fully initialized by the Laravel container, or initialize the object state before invoking it.',
-        )
-    }
-
-    if (details.includes('class') && details.includes('not found')) {
-        steps.push(
-            'Confirm the Laravel app boots cleanly and the target class is autoloadable from the current workspace root.',
-        )
-    }
-
-    if (
-        details.includes('bindingresolutionexception') ||
-        details.includes('target class') ||
-        details.includes('unable to resolve')
-    ) {
-        steps.push(
-            'Check container bindings and constructor dependencies for the selected method target.',
-        )
-    }
-
-    if (details.includes('syntax error') || details.includes('parse error')) {
-        steps.push(
-            'Fix the PHP syntax in the current selection, file, or method and run it again.',
-        )
-    }
-
-    if (steps.length === 0 && report.status !== 'success') {
-        steps.push(
-            'Inspect the diagnostics below to find the first Laravel or PHP error in the stack trace.',
-        )
-    }
-
-    return steps
-}
-
-function capitalize(value: string): string {
+function formatKind(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
