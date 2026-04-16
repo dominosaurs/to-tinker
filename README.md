@@ -4,12 +4,12 @@ Run any PHP or Laravel code in one click from VS Code ⚡
 
 To Tinker is a VS Code extension for Laravel and PHP developers who want to run real application code without opening a terminal, starting Tinker manually, or creating temporary routes, commands, and tests just to inspect a value.
 
-It runs through `php artisan tinker`, stays inside your Laravel app context, and lets you execute lines, selections, files, methods, and functions directly from the editor.
+It runs through `php artisan tinker`, stays inside your Laravel app context, and lets you execute selections, files, methods, and functions directly from the editor.
 
 ## ✨ Features
 
 - ⚡ Run PHP and Laravel code where you write it, without jumping to a terminal
-- ✂️ Run a selection, current line, or the whole file with smart last-value output
+- ✂️ Run current selection or whole file with smart last-value output
 - 🧠 Run methods and functions directly from the editor with CodeLens and callable detection
 - 🔁 Execute real Laravel app context through `php artisan tinker`, not a fake mini runtime
 - 🖥️ See output in a dedicated result panel built for readable values, errors, and source context
@@ -18,8 +18,8 @@ It runs through `php artisan tinker`, stays inside your Laravel app context, and
 ## ⚙️ How It Works
 
 - To Tinker runs your code through `php artisan tinker` inside the active Laravel workspace
-- `Run File` executes the whole file and prints the final meaningful value
-- `Run Line` and `Run Selection` are context-aware and try to print the value you actually care about
+- `To Tinker: File` executes whole file and prints final meaningful value
+- `To Tinker: Run` is context-aware: selection runs selection, no selection runs current line
 - Selecting a full function or method declaration promotes the run into callable mode instead of just evaluating raw source
 - Results appear in a dedicated side panel with output, errors, elapsed time, and source context
 - Dirty files are saved automatically before a run starts
@@ -51,9 +51,9 @@ To Tinker exists to remove that friction. It gives you a one-click way to run PH
 
 ## 🧭 Execution Model
 
-- `Run File` means: run the whole file and print the last meaningful value
-- `Run Line` means: usually run everything so far through the current line, then print the final value
-- `Run Selection` means: usually run everything so far through the end of the selection, then print the final value
+- `To Tinker: File` means: run whole file and print last meaningful value
+- `To Tinker: Run` with no selection means: usually run everything so far through current line, then print final value
+- `To Tinker: Run` with selection means: usually run everything so far through end of selection, then print final value
 - Inside functions and methods, line and partial selection runs fall back to snippet-only smart capture so incomplete callable context does not break execution
 - Whole function selections run as functions
 - Whole method selections run as methods

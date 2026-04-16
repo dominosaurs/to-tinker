@@ -137,7 +137,7 @@ describe('extension orchestration', () => {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(prepareExecutionEnvironment).toHaveBeenCalledWith(document)
@@ -186,7 +186,7 @@ function build_report(string $label) {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildFunctionPayload).toHaveBeenCalledWith(
@@ -248,7 +248,7 @@ class Runner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildFunctionPayload).toHaveBeenCalledWith(
@@ -293,7 +293,7 @@ class Runner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -338,7 +338,7 @@ class Runner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(save).toHaveBeenCalled()
@@ -371,7 +371,7 @@ class Runner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
@@ -443,7 +443,7 @@ $__toTinkerResult = (Inspiring::quote());`,
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runLine')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -488,7 +488,7 @@ $__toTinkerResult = (Inspiring::quote());`,
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runSelection')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -533,7 +533,7 @@ class ReportRunner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runLine')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -582,7 +582,7 @@ class ReportRunner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runSelection')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -625,7 +625,7 @@ function build() {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runLine')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -672,7 +672,7 @@ function build() {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runSelection')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
@@ -725,7 +725,7 @@ class ReportRunner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(buildMethodPayload).toHaveBeenCalledWith(
@@ -777,7 +777,7 @@ class ReportRunner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runPrimary')
+        const callback = getRegisteredCommand('toTinker.runDefault')
         await callback()
 
         expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
@@ -829,8 +829,8 @@ class ReportRunner {
         } as unknown as vscode.ExtensionContext
         activate(context)
 
-        const callback = getRegisteredCommand('toTinker.runMethod')
-        await callback()
+        const callback = getRegisteredCommand('toTinker.runMethodAt')
+        await callback(document.uri, new vscode.Position(2, 10))
 
         expect(promptForParameter).toHaveBeenCalledWith(
             expect.objectContaining({

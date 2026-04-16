@@ -1,11 +1,8 @@
 export const COMMANDS = {
+    runDefault: 'toTinker.runDefault',
     runFile: 'toTinker.runFile',
     runFunctionAt: 'toTinker.runFunctionAt',
-    runLine: 'toTinker.runLine',
-    runMethod: 'toTinker.runMethod',
     runMethodAt: 'toTinker.runMethodAt',
-    runPrimary: 'toTinker.runPrimary',
-    runSelection: 'toTinker.runSelection',
     showLogs: 'toTinker.showLogs',
     toggleSandbox: 'toTinker.toggleSandbox',
 } as const

@@ -24,23 +24,14 @@ export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
     codeLensProvider.register(context)
 
-    const register = (command: string, mode: RunMode): void => {
-        context.subscriptions.push(
-            vscode.commands.registerCommand(
-                command,
-                async (...args: unknown[]) => {
-                    await runRequest({
-                        requestedMode: mode,
-                        target: args[0],
-                    })
-                },
-            ),
-        )
-    }
-
     context.subscriptions.push(
-        vscode.commands.registerCommand(COMMANDS.runPrimary, async () => {
-            await runPrimaryRequest()
+        vscode.commands.registerCommand(COMMANDS.runDefault, async () => {
+            await runDefaultRequest()
+        }),
+        vscode.commands.registerCommand(COMMANDS.runFile, async () => {
+            await runRequest({
+                requestedMode: 'file',
+            })
         }),
         vscode.commands.registerCommand(COMMANDS.showLogs, async () => {
             log.show()
@@ -67,11 +58,6 @@ export function activate(context: vscode.ExtensionContext): void {
             },
         ),
     )
-
-    register(COMMANDS.runSelection, 'selection')
-    register(COMMANDS.runFile, 'file')
-    register(COMMANDS.runLine, 'line')
-    register(COMMANDS.runMethod, 'method')
 
     context.subscriptions.push({
         dispose() {
@@ -162,7 +148,7 @@ async function runRequest(runRequest: RunRequest): Promise<void> {
     }
 }
 
-async function runPrimaryRequest(): Promise<void> {
+async function runDefaultRequest(): Promise<void> {
     const editor = vscode.window.activeTextEditor
     if (!editor) {
         void vscode.window.showErrorMessage('Open a PHP editor first.')

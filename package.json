@@ -2,11 +2,8 @@
     "$schema": "https://json.schemastore.org/package.json",
     "activationEvents": [
         "onLanguage:php",
-        "onCommand:toTinker.runPrimary",
-        "onCommand:toTinker.runSelection",
+        "onCommand:toTinker.runDefault",
         "onCommand:toTinker.runFile",
-        "onCommand:toTinker.runLine",
-        "onCommand:toTinker.runMethod",
         "onCommand:toTinker.runMethodAt",
         "onCommand:toTinker.runFunctionAt",
         "onCommand:toTinker.showLogs",
@@ -31,7 +28,7 @@
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runPrimary",
+                "command": "toTinker.runDefault",
                 "enablement": "editorLangId == php",
                 "icon": {
                     "dark": "assets/images/icon32.png",
@@ -41,28 +38,10 @@
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runSelection",
-                "enablement": "editorLangId == php",
-                "title": "To Tinker"
-            },
-            {
-                "category": "To Tinker",
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
-                "icon": "$(play-all)",
-                "title": "Run File"
-            },
-            {
-                "category": "To Tinker",
-                "command": "toTinker.runLine",
-                "enablement": "editorLangId == php",
-                "title": "Run Line"
-            },
-            {
-                "category": "To Tinker",
-                "command": "toTinker.runMethod",
-                "enablement": "editorLangId == php",
-                "title": "Run Method"
+                "icon": "$(github-action)",
+                "title": "To Tinker: File"
             },
             {
                 "category": "To Tinker",
@@ -103,7 +82,7 @@
         },
         "keybindings": [
             {
-                "command": "toTinker.runPrimary",
+                "command": "toTinker.runDefault",
                 "key": "ctrl+r",
                 "mac": "cmd+r",
                 "when": "editorTextFocus && editorLangId == php"
@@ -112,7 +91,7 @@
         "menus": {
             "editor/title": [
                 {
-                    "command": "toTinker.runPrimary",
+                    "command": "toTinker.runDefault",
                     "group": "navigation",
                     "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
                 },
