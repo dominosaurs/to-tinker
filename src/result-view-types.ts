@@ -1,3 +1,8 @@
+export interface AppInfo {
+    name: string
+    version: string
+}
+
 export interface RunSummary {
     mode: string
     filePath: string

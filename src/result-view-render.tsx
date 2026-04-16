@@ -10,7 +10,7 @@ import type { ComponentChildren, JSX } from 'preact'
 import renderToString from 'preact-render-to-string'
 import type { ThemedTokenWithVariants } from 'shiki'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
-import type { RunReport } from './result-view-types'
+import type { AppInfo, RunReport } from './result-view-types'
 
 const shiki = createSingletonShorthands(
     createBundledHighlighter({
@@ -43,6 +43,7 @@ interface HighlightLine {
 }
 
 interface ViewModel {
+    appLabel: string
     elapsed?: string
     error?: string
     fileLabel: string
@@ -54,21 +55,32 @@ interface ViewModel {
     sourceLineStart?: number
     statusLabel: string
     targetLabel: string
+    title: string
 }
 
-export async function renderResultView(report: RunReport): Promise<string> {
-    const view = await toViewModel(report)
+export async function renderResultView(
+    report: RunReport,
+    appInfo: AppInfo = {
+        name: 'To Tinker',
+        version: 'dev',
+    },
+): Promise<string> {
+    const view = await toViewModel(report, appInfo)
 
     return `<!DOCTYPE html>${renderToString(<Document view={view} />)}`
 }
 
-async function toViewModel(report: RunReport): Promise<ViewModel> {
+async function toViewModel(
+    report: RunReport,
+    appInfo: AppInfo,
+): Promise<ViewModel> {
     const { summary } = report
     const diagnostics = [report.diagnostics?.trim(), report.stderr?.trim()]
         .filter(Boolean)
         .join('\n')
 
     return {
+        appLabel: `${appInfo.name} v${appInfo.version}`,
         elapsed: extractElapsed(diagnostics),
         error: report.error,
         fileLabel: `${shortPath(summary.filePath, summary.rootPath)}${formatLineRange(summary.sourceLineStart, summary.sourceLineEnd)}`,
@@ -90,6 +102,11 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
             summary.mode === 'method' && summary.methodName
                 ? `${summary.className ?? '?'}::${summary.methodName}`
                 : basename(summary.filePath),
+        title: formatDocumentTitle(
+            report.status,
+            summary.mode,
+            summary.filePath,
+        ),
     }
 }
 
@@ -102,7 +119,7 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
                     content="width=device-width, initial-scale=1.0"
                     name="viewport"
                 />
-                <title>To Tinker</title>
+                <title>{view.title}</title>
                 <style>{styles()}</style>
             </head>
             <body>
@@ -141,6 +158,7 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
 function Header({ view }: { view: ViewModel }): JSX.Element {
     return (
         <div class="top">
+            <div class="app-line">{view.appLabel}</div>
             <div class="status-line">
                 <span class={`status-${view.statusLabel}`}>
                     {view.statusLabel}
@@ -340,6 +358,13 @@ function styles(): string {
             color: var(--muted);
         }
         .top { margin-bottom: 18px; }
+        .app-line {
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
         .status-line {
             display: flex;
             gap: 10px;
@@ -580,6 +605,15 @@ function formatMode(value: string): string {
         default:
             return value.charAt(0).toUpperCase() + value.slice(1)
     }
+}
+
+function formatDocumentTitle(
+    status: RunReport['status'],
+    mode: string,
+    filePath: string,
+): string {
+    const statusLabel = status === 'success' ? 'Success' : formatMode(status)
+    return `${statusLabel} · ${formatMode(mode)} · ${basename(filePath)}`
 }
 
 function escapeHtml(value: string): string {
