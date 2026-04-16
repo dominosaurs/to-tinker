@@ -8,6 +8,7 @@
         "onCommand:toTinker.runLine",
         "onCommand:toTinker.runMethod",
         "onCommand:toTinker.runMethodAt",
+        "onCommand:toTinker.runFunctionAt",
         "onCommand:toTinker.showLogs",
         "onCommand:toTinker.toggleSandbox"
     ],

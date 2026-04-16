@@ -1,7 +1,12 @@
 import * as vscode from 'vscode'
 import { COMMANDS } from './commands'
 import { getConfig } from './config'
-import { findMethods, type MethodInfo } from './extraction'
+import {
+    type FunctionInfo,
+    findFunctions,
+    findMethods,
+    type MethodInfo,
+} from './extraction'
 
 export class ToTinkerCodeLensProvider implements vscode.CodeLensProvider {
     private readonly emitter = new vscode.EventEmitter<void>()
@@ -36,17 +41,30 @@ export class ToTinkerCodeLensProvider implements vscode.CodeLensProvider {
             return []
         }
 
-        return findMethods(document).map(
-            method =>
-                new vscode.CodeLens(toMethodRange(document, method), {
-                    arguments: [
-                        document.uri,
-                        document.positionAt(method.start),
-                    ],
-                    command: COMMANDS.runMethodAt,
-                    title: '$(play) To Tinker: Run',
-                }),
-        )
+        return [
+            ...findFunctions(document).map(
+                callable =>
+                    new vscode.CodeLens(toCallableRange(document, callable), {
+                        arguments: [
+                            document.uri,
+                            document.positionAt(callable.start),
+                        ],
+                        command: COMMANDS.runFunctionAt,
+                        title: '$(play) To Tinker: Run',
+                    }),
+            ),
+            ...findMethods(document).map(
+                method =>
+                    new vscode.CodeLens(toCallableRange(document, method), {
+                        arguments: [
+                            document.uri,
+                            document.positionAt(method.start),
+                        ],
+                        command: COMMANDS.runMethodAt,
+                        title: '$(play) To Tinker: Run',
+                    }),
+            ),
+        ]
     }
 
     private scheduleRefresh(): void {
@@ -61,11 +79,13 @@ export class ToTinkerCodeLensProvider implements vscode.CodeLensProvider {
     }
 }
 
-function toMethodRange(
+function toCallableRange(
     document: vscode.TextDocument,
-    method: MethodInfo,
+    callable: MethodInfo | FunctionInfo,
 ): vscode.Range {
-    const start = document.positionAt(method.start)
-    const end = document.positionAt(method.start + method.methodName.length)
+    const name =
+        'methodName' in callable ? callable.methodName : callable.functionName
+    const start = document.positionAt(callable.nameStart)
+    const end = document.positionAt(callable.nameStart + name.length)
     return new vscode.Range(start, end)
 }

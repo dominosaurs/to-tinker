@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as vscode from 'vscode'
 import { getConfig } from './config'
-import type { MethodInfo, MethodParameter } from './extraction'
+import type { FunctionInfo, MethodInfo, MethodParameter } from './extraction'
 
 export function resolvePhpExecutable(): string {
     const phpPath = getConfig().phpPath
@@ -27,31 +27,32 @@ export function resolvePhpExecutable(): string {
 }
 
 export async function promptForParameter(
-    method: MethodInfo,
+    callable: MethodInfo | FunctionInfo,
     parameter: MethodParameter,
 ): Promise<string> {
-    const methodSignature = formatMethodSignature(method)
+    const callableSignature = formatCallableSignature(callable)
+    const callableTitle = formatCallableTitle(callable)
     const value = await vscode.window.showInputBox({
         ignoreFocusOut: true,
         placeHolder:
             parameter.signatureHint || parameter.defaultExpression
                 ? `${parameter.signatureHint || 'mixed'}${parameter.defaultExpression ? `, default ${parameter.defaultExpression}` : ''}`
                 : "Examples: 123, 'text', User::first(), ['a' => 1]",
-        prompt: `Enter PHP expression for $${parameter.name} in ${methodSignature}`,
-        title: `To Tinker: ${method.className}::${method.methodName}`,
+        prompt: `Enter PHP expression for $${parameter.name} in ${callableSignature}`,
+        title: `To Tinker: ${callableTitle}`,
     })
 
     if (!value?.trim()) {
         throw new Error(
-            `Missing PHP expression for parameter $${parameter.name} in ${method.className}::${method.methodName}.`,
+            `Missing PHP expression for parameter $${parameter.name} in ${callableTitle}.`,
         )
     }
 
     return value.trim()
 }
 
-function formatMethodSignature(method: MethodInfo): string {
-    const parameters = method.parameters
+function formatCallableSignature(callable: MethodInfo | FunctionInfo): string {
+    const parameters = callable.parameters
         .map(parameter => {
             const signature = parameter.signatureHint
                 ? `${parameter.signatureHint} `
@@ -63,5 +64,17 @@ function formatMethodSignature(method: MethodInfo): string {
         })
         .join(', ')
 
-    return `${method.className}::${method.methodName}(${parameters})`
+    if ('methodName' in callable) {
+        return `${callable.className}::${callable.methodName}(${parameters})`
+    }
+
+    return `${callable.functionName}(${parameters})`
+}
+
+function formatCallableTitle(callable: MethodInfo | FunctionInfo): string {
+    if ('methodName' in callable) {
+        return `${callable.className}::${callable.methodName}`
+    }
+
+    return callable.functionName
 }

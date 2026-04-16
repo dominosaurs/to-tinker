@@ -1,10 +1,12 @@
-import type { MethodInfo } from './extraction'
+import type { FunctionInfo, MethodInfo } from './extraction'
 
 export interface WrapperOptions {
     sandboxEnabled: boolean
     fakeStorage: boolean
     filePath: string
     method?: MethodInfo
+    callableFunction?: FunctionInfo
+    functionDeclarationSource?: string
     smartCapture?: boolean
     selectionOrFileCode?: string
     promptedArguments?: Record<number, string>
@@ -58,8 +60,10 @@ export function buildMethodPayload(options: WrapperOptions): string {
         `$__toTinkerPromptedArgs = ${mapLiteral(args)};`,
         '$__toTinkerResult = null;',
         '$__toTinkerException = null;',
+        "$__toTinkerBufferedOutput = '';",
         '$__toTinkerElapsedStart = microtime(true);',
         'try {',
+        '    ob_start();',
         '    require_once $__toTinkerFile;',
         `    $__toTinkerReflector = new ReflectionMethod(${quote(method.fullyQualifiedClassName)}, ${quote(method.methodName)});`,
         '    $__toTinkerDeclaringClass = $__toTinkerReflector->getDeclaringClass()->getName();',
@@ -80,7 +84,9 @@ export function buildMethodPayload(options: WrapperOptions): string {
         '        }',
         "        throw new RuntimeException('Unresolved parameter: $' . $__toTinkerParameter->getName());",
         '    }',
-        '    if ($__toTinkerReflector->isStatic()) {',
+        "    if ($__toTinkerReflector->getName() === '__construct') {",
+        '        $__toTinkerResult = new $__toTinkerDeclaringClass(...$__toTinkerArgs);',
+        '    } elseif ($__toTinkerReflector->isStatic()) {',
         '        $__toTinkerResult = $__toTinkerReflector->invokeArgs(null, $__toTinkerArgs);',
         '    } else {',
         '        $__toTinkerInstance = app($__toTinkerDeclaringClass);',
@@ -96,13 +102,88 @@ export function buildMethodPayload(options: WrapperOptions): string {
         '        $__toTinkerReflector->setAccessible(true);',
         '        $__toTinkerResult = $__toTinkerReflector->invokeArgs($__toTinkerInstance, $__toTinkerArgs);',
         '    }',
+        '    $__toTinkerBufferedOutput = ob_get_clean();',
         '} catch (Throwable $__toTinkerCaught) {',
+        '    $__toTinkerBufferedOutput = ob_get_clean();',
         '    $__toTinkerException = $__toTinkerCaught;',
         '}',
         '$__toTinkerElapsedMs = (int) round((microtime(true) - $__toTinkerElapsedStart) * 1000);',
-        renderResultPhp(false),
+        renderResultPhp(true),
         '',
     ].join('\n')
+}
+
+export function buildFunctionPayload(options: WrapperOptions): string {
+    const callableFunction = options.callableFunction
+    if (!callableFunction) {
+        throw new Error('Missing function metadata.')
+    }
+
+    const args = options.promptedArguments ?? {}
+    const declarationSource = options.functionDeclarationSource
+        ? buildFunctionDeclarationSource(
+              options.functionDeclarationSource,
+              callableFunction.namespaceName,
+          )
+        : undefined
+
+    return [
+        ...buildSandboxPrelude(options.sandboxEnabled, options.fakeStorage),
+        `$__toTinkerFile = ${quote(options.filePath)};`,
+        `$__toTinkerFunction = ${quote(callableFunction.fullyQualifiedFunctionName)};`,
+        ...(declarationSource
+            ? [
+                  `$__toTinkerFunctionDeclaration = base64_decode(${quoteBase64(declarationSource)});`,
+              ]
+            : []),
+        `$__toTinkerPromptedArgs = ${mapLiteral(args)};`,
+        '$__toTinkerResult = null;',
+        '$__toTinkerException = null;',
+        "$__toTinkerBufferedOutput = '';",
+        '$__toTinkerElapsedStart = microtime(true);',
+        'try {',
+        '    ob_start();',
+        ...(declarationSource
+            ? ['    eval($__toTinkerFunctionDeclaration);']
+            : ['    require_once $__toTinkerFile;']),
+        '    if (!function_exists($__toTinkerFunction)) {',
+        "        throw new RuntimeException('Function could not be loaded from this file.');",
+        '    }',
+        '    $__toTinkerReflector = new ReflectionFunction($__toTinkerFunction);',
+        '    $__toTinkerArgs = [];',
+        '    foreach ($__toTinkerReflector->getParameters() as $__toTinkerIndex => $__toTinkerParameter) {',
+        '        if (array_key_exists($__toTinkerIndex, $__toTinkerPromptedArgs)) {',
+        "            $__toTinkerArgs[] = eval('return ' . $__toTinkerPromptedArgs[$__toTinkerIndex] . ';');",
+        '            continue;',
+        '        }',
+        '        if ($__toTinkerParameter->isDefaultValueAvailable()) {',
+        '            $__toTinkerArgs[] = $__toTinkerParameter->getDefaultValue();',
+        '            continue;',
+        '        }',
+        "        throw new RuntimeException('Unresolved parameter: $' . $__toTinkerParameter->getName());",
+        '    }',
+        '    $__toTinkerResult = $__toTinkerReflector->invokeArgs($__toTinkerArgs);',
+        '    $__toTinkerBufferedOutput = ob_get_clean();',
+        '} catch (Throwable $__toTinkerCaught) {',
+        '    $__toTinkerBufferedOutput = ob_get_clean();',
+        '    $__toTinkerException = $__toTinkerCaught;',
+        '}',
+        '$__toTinkerElapsedMs = (int) round((microtime(true) - $__toTinkerElapsedStart) * 1000);',
+        renderResultPhp(true),
+        '',
+    ].join('\n')
+}
+
+function buildFunctionDeclarationSource(
+    source: string,
+    namespaceName?: string,
+): string {
+    const trimmed = source.trim()
+    if (!namespaceName) {
+        return trimmed
+    }
+
+    return `namespace ${namespaceName};\n${trimmed}`
 }
 
 function buildSandboxPrelude(enabled: boolean, fakeStorage: boolean): string[] {

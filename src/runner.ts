@@ -3,7 +3,7 @@ import * as vscode from 'vscode'
 import { stripAnsi } from './ansi'
 import type { RunMode } from './commands'
 import { getConfig } from './config'
-import type { MethodInfo } from './extraction'
+import type { FunctionInfo, MethodInfo } from './extraction'
 import type { Log } from './log'
 import type { Output, RunSummary } from './output'
 import type { LaravelWorkspace } from './workspace'
@@ -19,6 +19,7 @@ export interface ExecutionRequest {
     sourceLineStart?: number
     sourceLineEnd?: number
     method?: MethodInfo
+    callableFunction?: FunctionInfo
 }
 
 export interface ExecutionResult {
@@ -222,6 +223,7 @@ function buildSummary(request: ExecutionRequest): RunSummary {
     return {
         className: request.method?.className,
         filePath: request.filePath,
+        functionName: request.callableFunction?.functionName,
         methodName: request.method?.methodName,
         mode: request.mode,
         phpExecutable: request.phpExecutable,

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildMethodPayload, buildTinkerPayload } from '../src/wrapper'
+import {
+    buildFunctionPayload,
+    buildMethodPayload,
+    buildTinkerPayload,
+} from '../src/wrapper'
 
 describe('wrapper', () => {
     it('builds sandboxed selection payload', () => {
@@ -143,6 +147,7 @@ describe('wrapper', () => {
                 fullyQualifiedClassName: 'App\\Services\\ReportRunner',
                 isStatic: false,
                 methodName: 'build',
+                nameStart: 0,
                 namespaceName: 'App\\Services',
                 parameters: [],
                 start: 0,
@@ -157,5 +162,88 @@ describe('wrapper', () => {
         )
         expect(payload).toContain("$__toTinkerPromptedArgs = [1 => '\\'x\\''];")
         expect(payload).toContain('setAccessible(true)')
+        expect(payload).toContain('ob_start();')
+        expect(payload).toContain('$__toTinkerBufferedOutput = ob_get_clean();')
+    })
+
+    it('builds function payload with require_once and fully-qualified invocation', () => {
+        const payload = buildFunctionPayload({
+            callableFunction: {
+                end: 10,
+                fullyQualifiedFunctionName: '\\App\\Support\\build_report',
+                functionName: 'build_report',
+                nameStart: 0,
+                namespaceName: 'App\\Support',
+                parameters: [],
+                start: 0,
+            },
+            fakeStorage: false,
+            filePath: '/tmp/helpers.php',
+            promptedArguments: { 0: "'x'" },
+            sandboxEnabled: false,
+        })
+
+        expect(payload).toContain('require_once $__toTinkerFile;')
+        expect(payload).toContain(
+            "$__toTinkerFunction = '\\\\App\\\\Support\\\\build_report';",
+        )
+        expect(payload).toContain(
+            'if (!function_exists($__toTinkerFunction)) {',
+        )
+        expect(payload).toContain(
+            'new ReflectionFunction($__toTinkerFunction);',
+        )
+        expect(payload).toContain('ob_start();')
+        expect(payload).toContain('$__toTinkerBufferedOutput = ob_get_clean();')
+    })
+
+    it('builds eval-backed function payload for selected nested declarations', () => {
+        const payload = buildFunctionPayload({
+            callableFunction: {
+                end: 10,
+                fullyQualifiedFunctionName: '\\App\\Support\\helper_inside',
+                functionName: 'helper_inside',
+                nameStart: 0,
+                namespaceName: 'App\\Support',
+                parameters: [],
+                start: 0,
+            },
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            functionDeclarationSource:
+                "function helper_inside() { echo 'x'; return 1; }",
+            sandboxEnabled: false,
+        })
+
+        expect(payload).toContain('$__toTinkerFunctionDeclaration =')
+        expect(payload).toContain('eval($__toTinkerFunctionDeclaration);')
+        expect(payload).not.toContain('require_once $__toTinkerFile;')
+    })
+
+    it('constructs the class when running __construct', () => {
+        const payload = buildMethodPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            method: {
+                className: 'ReportRunner',
+                end: 10,
+                fullyQualifiedClassName: 'App\\Services\\ReportRunner',
+                isStatic: false,
+                methodName: '__construct',
+                nameStart: 0,
+                namespaceName: 'App\\Services',
+                parameters: [],
+                start: 0,
+                visibility: 'public',
+            },
+            sandboxEnabled: false,
+        })
+
+        expect(payload).toContain(
+            "if ($__toTinkerReflector->getName() === '__construct') {",
+        )
+        expect(payload).toContain(
+            'new $__toTinkerDeclaringClass(...$__toTinkerArgs);',
+        )
     })
 })

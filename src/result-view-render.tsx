@@ -101,7 +101,9 @@ async function toViewModel(
         targetLabel:
             summary.mode === 'method' && summary.methodName
                 ? `${summary.className ?? '?'}::${summary.methodName}`
-                : basename(summary.filePath),
+                : summary.mode === 'function' && summary.functionName
+                  ? summary.functionName
+                  : basename(summary.filePath),
         title: formatDocumentTitle(
             report.status,
             summary.mode,
@@ -189,7 +191,7 @@ function Header({ view }: { view: ViewModel }): JSX.Element {
                     <span class="meta-label">File</span>
                     <span class="meta-value">{view.fileLabel}</span>
                 </div>
-                {view.mode === 'method' ? (
+                {view.mode === 'method' || view.mode === 'function' ? (
                     <div class="meta-row">
                         <span class="meta-label">Target</span>
                         <span class="meta-value">{view.targetLabel}</span>
@@ -602,6 +604,8 @@ function formatMode(value: string): string {
             return 'File'
         case 'method':
             return 'Method'
+        case 'function':
+            return 'Function'
         default:
             return value.charAt(0).toUpperCase() + value.slice(1)
     }

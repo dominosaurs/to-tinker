@@ -1,5 +1,6 @@
 export const COMMANDS = {
     runFile: 'toTinker.runFile',
+    runFunctionAt: 'toTinker.runFunctionAt',
     runLine: 'toTinker.runLine',
     runMethod: 'toTinker.runMethod',
     runMethodAt: 'toTinker.runMethodAt',
@@ -11,4 +12,4 @@ export const COMMANDS = {
 
 export type CommandName = keyof typeof COMMANDS
 
-export type RunMode = 'selection' | 'file' | 'line' | 'method'
+export type RunMode = 'selection' | 'file' | 'line' | 'method' | 'function'

@@ -3,6 +3,7 @@ import type * as vscode from 'vscode'
 export interface ClassInfo {
     name: string
     start: number
+    bodyDepth: number
     end: number
 }
 
@@ -19,8 +20,19 @@ export interface MethodInfo {
     className: string
     fullyQualifiedClassName: string
     methodName: string
+    nameStart: number
     visibility: 'public' | 'protected' | 'private'
     isStatic: boolean
+    start: number
+    end: number
+    parameters: MethodParameter[]
+}
+
+export interface FunctionInfo {
+    namespaceName?: string
+    functionName: string
+    nameStart: number
+    fullyQualifiedFunctionName: string
     start: number
     end: number
     parameters: MethodParameter[]
@@ -85,11 +97,100 @@ export function findMethodAtPosition(
     return target
 }
 
+export function findFunctionAtPosition(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+): FunctionInfo {
+    const cursorOffset = document.offsetAt(position)
+    const target = findFunctions(document)
+        .filter(
+            callable =>
+                cursorOffset >= callable.start && cursorOffset <= callable.end,
+        )
+        .sort((left, right) => left.start - right.start)
+        .at(-1)
+
+    if (!target) {
+        throw new Error('Unable to resolve function at this position.')
+    }
+
+    return target
+}
+
 export function findMethods(document: vscode.TextDocument): MethodInfo[] {
     const text = document.getText()
     const namespaceName = parseNamespace(text)
     const classes = parseClasses(text)
     return parseMethods(text, classes, namespaceName)
+}
+
+export function findFunctions(document: vscode.TextDocument): FunctionInfo[] {
+    const text = document.getText()
+    const namespaceName = parseNamespace(text)
+    const classes = parseClasses(text)
+    return parseFunctions(text, classes, namespaceName)
+}
+
+export function findFunctionMatchingSelection(
+    document: vscode.TextDocument,
+    selection: vscode.Selection,
+): FunctionInfo | undefined {
+    const text = document.getText()
+    const normalizedStart = document.offsetAt(selection.start)
+    const normalizedEnd = document.offsetAt(selection.end)
+    const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
+        text,
+        normalizedStart,
+        normalizedEnd,
+    )
+
+    return findFunctions(document).find(
+        callable =>
+            callable.start === trimmedStart && callable.end + 1 === trimmedEnd,
+    )
+}
+
+export function parseSelectedFunctionDeclaration(
+    document: vscode.TextDocument,
+    selection: vscode.Selection,
+): FunctionInfo | undefined {
+    const documentText = document.getText()
+    const normalizedStart = document.offsetAt(selection.start)
+    const normalizedEnd = document.offsetAt(selection.end)
+    const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
+        documentText,
+        normalizedStart,
+        normalizedEnd,
+    )
+    const selectedText = documentText.slice(trimmedStart, trimmedEnd)
+    const declaration = selectedText.trim()
+    const namespaceName = parseNamespace(documentText)
+    const functionRegex =
+        /(?:#\[[\s\S]*?\]\s*)*\bfunction\b\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|&?()\s]+)?\s*\{/u
+    const match = declaration.match(functionRegex)
+
+    if (!match || match.index !== 0) {
+        return undefined
+    }
+
+    const braceIndex = match[0].lastIndexOf('{')
+    const end = findBlockEnd(declaration, braceIndex)
+    const name = match[1]
+    if (!name || end === undefined || end !== declaration.length - 1) {
+        return undefined
+    }
+
+    return {
+        end: trimmedStart + end,
+        fullyQualifiedFunctionName: namespaceName
+            ? `\\${namespaceName}\\${name}`
+            : name,
+        functionName: name,
+        nameStart: trimmedStart + match[0].indexOf(name),
+        namespaceName,
+        parameters: parseParameters(match[2] ?? ''),
+        start: trimmedStart,
+    }
 }
 
 function parseNamespace(text: string): string | undefined {
@@ -113,7 +214,12 @@ function parseClasses(text: string): ClassInfo[] {
             end !== undefined &&
             !match[0].includes('abstract')
         ) {
-            classes.push({ end, name, start })
+            classes.push({
+                bodyDepth: braceDepthAtOffset(text, start) + 1,
+                end,
+                name,
+                start,
+            })
         }
     }
 
@@ -127,7 +233,7 @@ function parseMethods(
 ): MethodInfo[] {
     const methods: MethodInfo[] = []
     const methodRegex =
-        /(?:#\[[\s\S]*?\]\s*)*\b(?:final\s+)?(public|protected|private)?\s*(static\s+)?function\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|&?()\s]+)?\s*\{/g
+        /(?:#\[[\s\S]*?\]\s*)*\b(?:final\s+)?(public|protected|private)?\s*(static\s+)?function\b\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|&?()\s]+)?\s*\{/g
 
     for (const match of text.matchAll(methodRegex)) {
         const start = match.index
@@ -139,6 +245,10 @@ function parseMethods(
             candidate => start >= candidate.start && start <= candidate.end,
         )
         if (!owningClass) {
+            continue
+        }
+
+        if (braceDepthAtOffset(text, start) !== owningClass.bodyDepth) {
             continue
         }
 
@@ -159,6 +269,7 @@ function parseMethods(
                 : owningClass.name,
             isStatic: Boolean(match[2]?.trim()),
             methodName: name,
+            nameStart: start + match[0].indexOf(name),
             namespaceName,
             parameters: parseParameters(parameterSource),
             start,
@@ -167,6 +278,58 @@ function parseMethods(
     }
 
     return methods
+}
+
+function parseFunctions(
+    text: string,
+    classes: ClassInfo[],
+    namespaceName?: string,
+): FunctionInfo[] {
+    const functions: FunctionInfo[] = []
+    const functionRegex =
+        /(?:#\[[\s\S]*?\]\s*)*\bfunction\b\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|&?()\s]+)?\s*\{/g
+
+    for (const match of text.matchAll(functionRegex)) {
+        const start = match.index
+        if (start === undefined) {
+            continue
+        }
+
+        if (
+            classes.some(
+                candidate => start >= candidate.start && start <= candidate.end,
+            )
+        ) {
+            continue
+        }
+
+        if (braceDepthAtOffset(text, start) !== 0) {
+            continue
+        }
+
+        const name = match[1]
+        const parameterSource = match[2] ?? ''
+        const braceIndex = start + match[0].lastIndexOf('{')
+        const end = findBlockEnd(text, braceIndex)
+
+        if (!name || end === undefined) {
+            continue
+        }
+
+        functions.push({
+            end,
+            fullyQualifiedFunctionName: namespaceName
+                ? `\\${namespaceName}\\${name}`
+                : name,
+            functionName: name,
+            nameStart: start + match[0].indexOf(name),
+            namespaceName,
+            parameters: parseParameters(parameterSource),
+            start,
+        })
+    }
+
+    return functions
 }
 
 function normalizeVisibility(
@@ -262,6 +425,91 @@ function splitParameterList(source: string): string[] {
     }
 
     return items
+}
+
+function braceDepthAtOffset(text: string, targetOffset: number): number {
+    let depth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    let inLineComment = false
+    let inBlockComment = false
+
+    for (
+        let index = 0;
+        index < text.length && index < targetOffset;
+        index += 1
+    ) {
+        const character = text[index]
+        const next = text[index + 1]
+        const previous = text[index - 1]
+
+        if (inLineComment) {
+            if (character === '\n') {
+                inLineComment = false
+            }
+            continue
+        }
+
+        if (inBlockComment) {
+            if (previous === '*' && character === '/') {
+                inBlockComment = false
+            }
+            continue
+        }
+
+        if (!inSingleQuote && !inDoubleQuote) {
+            if (character === '/' && next === '/') {
+                inLineComment = true
+                continue
+            }
+
+            if (character === '/' && next === '*') {
+                inBlockComment = true
+                continue
+            }
+        }
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '{') {
+            depth += 1
+        } else if (character === '}') {
+            depth = Math.max(0, depth - 1)
+        }
+    }
+
+    return depth
+}
+
+function trimWhitespaceBounds(
+    text: string,
+    start: number,
+    end: number,
+): [number, number] {
+    let trimmedStart = start
+    let trimmedEnd = end
+
+    while (trimmedStart < trimmedEnd && /\s/.test(text[trimmedStart] ?? '')) {
+        trimmedStart += 1
+    }
+
+    while (trimmedEnd > trimmedStart && /\s/.test(text[trimmedEnd - 1] ?? '')) {
+        trimmedEnd -= 1
+    }
+
+    return [trimmedStart, trimmedEnd]
 }
 
 function isBuiltinType(type: string): boolean {

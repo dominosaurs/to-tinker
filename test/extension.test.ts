@@ -8,8 +8,10 @@ const renderExecutionReport = vi.fn()
 const prepareExecutionEnvironment = vi.fn()
 const promptForParameter = vi.fn()
 const setSandboxDefaultEnabled = vi.fn()
+const buildFunctionPayload = vi.fn(() => 'function payload')
 const buildMethodPayload = vi.fn(() => 'method payload')
 const buildTinkerPayload = vi.fn(() => 'payload')
+const findFunctionAtPosition = vi.fn()
 const findMethodAtPosition = vi.fn()
 
 vi.mock('../src/runner', async () => {
@@ -42,6 +44,7 @@ vi.mock('../src/php', () => ({
 }))
 
 vi.mock('../src/wrapper', () => ({
+    buildFunctionPayload,
     buildMethodPayload,
     buildTinkerPayload,
 }))
@@ -54,6 +57,7 @@ vi.mock('../src/extraction', async () => {
 
     return {
         ...actual,
+        findFunctionAtPosition,
         findMethodAtPosition,
     }
 })
@@ -81,17 +85,28 @@ describe('extension orchestration', () => {
             },
         })
         promptForParameter.mockResolvedValue("'from prompt'")
+        findFunctionAtPosition.mockReturnValue({
+            end: 60,
+            fullyQualifiedFunctionName: '\\App\\Support\\build_report',
+            functionName: 'build_report',
+            nameStart: 0,
+            namespaceName: 'App\\Support',
+            parameters: [],
+            start: 0,
+        })
         findMethodAtPosition.mockReturnValue({
             className: 'ReportRunner',
             end: 60,
             fullyQualifiedClassName: 'App\\Services\\ReportRunner',
             isStatic: false,
             methodName: 'build',
+            nameStart: 0,
             parameters: [],
             start: 0,
             visibility: 'public',
         })
         buildMethodPayload.mockReturnValue('method payload')
+        buildFunctionPayload.mockReturnValue('function payload')
         buildTinkerPayload.mockReturnValue('payload')
         setSandboxDefaultEnabled.mockResolvedValue(undefined)
     })
@@ -134,6 +149,126 @@ describe('extension orchestration', () => {
             expect.anything(),
         )
         expect(renderExecutionReport).toHaveBeenCalled()
+    })
+
+    it('treats a full function declaration selection as function mode', async () => {
+        const source = `<?php
+function build_report(string $label) {
+    return $label;
+}
+`
+        const document = createTextDocument(source)
+        const functionStart = source.indexOf('function build_report')
+        const functionEnd = source.lastIndexOf('}') + 1
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                document.positionAt(functionStart),
+                document.positionAt(functionEnd),
+            ),
+            selections: [
+                new vscode.Selection(
+                    document.positionAt(functionStart),
+                    document.positionAt(functionEnd),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        findFunctionAtPosition.mockReset()
+        buildTinkerPayload.mockClear()
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runPrimary')
+        await callback()
+
+        expect(buildFunctionPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callableFunction: expect.objectContaining({
+                    functionName: 'build_report',
+                }),
+                functionDeclarationSource: undefined,
+            }),
+        )
+        expect(buildTinkerPayload).not.toHaveBeenCalled()
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callableFunction: expect.objectContaining({
+                    functionName: 'build_report',
+                }),
+                mode: 'function',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('treats a selected nested function declaration as function mode with eval-backed source', async () => {
+        const source = `<?php
+namespace App\\Support;
+
+class Runner {
+    public function build() {
+        function helper_inside(string $label) {
+            return $label;
+        }
+    }
+}
+`
+        const document = createTextDocument(source)
+        const functionStart = source.indexOf('function helper_inside')
+        const functionEnd = source.indexOf('\n        }', functionStart) + 10
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                document.positionAt(functionStart),
+                document.positionAt(functionEnd),
+            ),
+            selections: [
+                new vscode.Selection(
+                    document.positionAt(functionStart),
+                    document.positionAt(functionEnd),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        buildFunctionPayload.mockClear()
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runPrimary')
+        await callback()
+
+        expect(buildFunctionPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callableFunction: expect.objectContaining({
+                    functionName: 'helper_inside',
+                }),
+                functionDeclarationSource: expect.stringContaining(
+                    'function helper_inside(string $label)',
+                ),
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callableFunction: expect.objectContaining({
+                    functionName: 'helper_inside',
+                }),
+                mode: 'function',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
     })
 
     it('runs the current file when primary command is used without a selection', async () => {
@@ -273,6 +408,7 @@ class ReportRunner {
             fullyQualifiedClassName: 'ReportRunner',
             isStatic: false,
             methodName: 'build',
+            nameStart: source.indexOf('build'),
             parameters: [
                 {
                     hasDefault: false,
@@ -308,6 +444,78 @@ class ReportRunner {
             expect.objectContaining({
                 promptedArguments: { 0: "'from prompt'" },
             }),
+        )
+    })
+
+    it('runs a top-level function through the function execution pipeline', async () => {
+        const source = `<?php
+function build_report(string $label) {
+    return $label;
+}`
+        const document = createTextDocument(source)
+        const cursor = new vscode.Selection(
+            new vscode.Position(1, 12),
+            new vscode.Position(1, 12),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        findFunctionAtPosition.mockReturnValue({
+            end: source.length - 1,
+            fullyQualifiedFunctionName: '\\App\\Support\\build_report',
+            functionName: 'build_report',
+            nameStart: source.indexOf('build_report'),
+            namespaceName: 'App\\Support',
+            parameters: [
+                {
+                    hasDefault: false,
+                    name: 'label',
+                    resolvableByContainer: false,
+                    signatureHint: 'string',
+                },
+            ],
+            start: source.indexOf('function build_report'),
+        })
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runFunctionAt')
+        await callback(document.uri, new vscode.Position(1, 12))
+
+        expect(promptForParameter).toHaveBeenCalledWith(
+            expect.objectContaining({
+                functionName: 'build_report',
+            }),
+            expect.objectContaining({
+                name: 'label',
+                signatureHint: 'string',
+            }),
+        )
+        expect(buildFunctionPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callableFunction: expect.objectContaining({
+                    functionName: 'build_report',
+                }),
+                promptedArguments: { 0: "'from prompt'" },
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callableFunction: expect.objectContaining({
+                    functionName: 'build_report',
+                }),
+                mode: 'function',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
         )
     })
 

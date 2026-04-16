@@ -32,6 +32,7 @@ describe('php', () => {
                 fullyQualifiedClassName: 'App\\Services\\ReportRunner',
                 isStatic: false,
                 methodName: 'build',
+                nameStart: 1,
                 parameters: [
                     {
                         hasDefault: false,
@@ -56,6 +57,44 @@ describe('php', () => {
             expect.objectContaining({
                 prompt: 'Enter PHP expression for $label in ReportRunner::build(string $label)',
                 title: 'To Tinker: ReportRunner::build',
+            }),
+        )
+    })
+
+    it('includes function context when prompting for unresolved parameters', async () => {
+        const showInputBox = vi.mocked(vscode.window.showInputBox)
+        showInputBox.mockResolvedValue("'demo'")
+
+        const value = await promptForParameter(
+            {
+                end: 10,
+                fullyQualifiedFunctionName: '\\App\\Support\\build_report',
+                functionName: 'build_report',
+                nameStart: 1,
+                namespaceName: 'App\\Support',
+                parameters: [
+                    {
+                        hasDefault: false,
+                        name: 'label',
+                        resolvableByContainer: false,
+                        signatureHint: 'string',
+                    },
+                ],
+                start: 1,
+            },
+            {
+                hasDefault: false,
+                name: 'label',
+                resolvableByContainer: false,
+                signatureHint: 'string',
+            },
+        )
+
+        expect(value).toBe("'demo'")
+        expect(showInputBox).toHaveBeenCalledWith(
+            expect.objectContaining({
+                prompt: 'Enter PHP expression for $label in build_report(string $label)',
+                title: 'To Tinker: build_report',
             }),
         )
     })

@@ -6,15 +6,23 @@ import {
     extractFile,
     extractLine,
     extractSelection,
+    type FunctionInfo,
+    findFunctionAtPosition,
+    findFunctionMatchingSelection,
     findMethodAtPosition,
     type MethodInfo,
+    parseSelectedFunctionDeclaration,
 } from './extraction'
 import { Log } from './log'
 import { Output } from './output'
 import { promptForParameter } from './php'
 import { prepareExecutionEnvironment } from './preflight'
 import { executeTinker, RunRegistry, renderExecutionReport } from './runner'
-import { buildMethodPayload, buildTinkerPayload } from './wrapper'
+import {
+    buildFunctionPayload,
+    buildMethodPayload,
+    buildTinkerPayload,
+} from './wrapper'
 
 const output = new Output()
 const log = new Log()
@@ -50,6 +58,12 @@ export function activate(context: vscode.ExtensionContext): void {
             COMMANDS.runMethodAt,
             async (uri: vscode.Uri, position: vscode.Position) => {
                 await executeRun('method', { position, uri })
+            },
+        ),
+        vscode.commands.registerCommand(
+            COMMANDS.runFunctionAt,
+            async (uri: vscode.Uri, position: vscode.Position) => {
+                await executeRun('function', { position, uri })
             },
         ),
     )
@@ -91,16 +105,59 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
         const sandboxEnabled = config.sandbox.defaultEnabled
 
         let method: MethodInfo | undefined
+        let callableFunction: FunctionInfo | undefined
         let payload: string
         let sourceCode: string | undefined
         let sourceLineStart: number | undefined
         let sourceLineEnd: number | undefined
+        let resolvedMode = mode
+        let selectedFunctionDeclarationSource: string | undefined
 
         switch (mode) {
             case 'selection':
                 if (editor.selections.length !== 1) {
                     throw new Error('Multiple selections are not supported.')
                 }
+                {
+                    const matchedTopLevelFunction =
+                        findFunctionMatchingSelection(
+                            document,
+                            editor.selection,
+                        )
+                    const matchedSelectedDeclaration =
+                        parseSelectedFunctionDeclaration(
+                            document,
+                            editor.selection,
+                        )
+                    callableFunction =
+                        matchedTopLevelFunction ?? matchedSelectedDeclaration
+                    selectedFunctionDeclarationSource =
+                        matchedTopLevelFunction || !matchedSelectedDeclaration
+                            ? undefined
+                            : extractSelection(document, editor.selection)
+                }
+                if (callableFunction) {
+                    resolvedMode = 'function'
+                    sourceCode = document
+                        .getText()
+                        .slice(callableFunction.start, callableFunction.end + 1)
+                    sourceLineStart =
+                        document.positionAt(callableFunction.start).line + 1
+                    sourceLineEnd =
+                        document.positionAt(callableFunction.end).line + 1
+                    payload = buildFunctionPayload({
+                        callableFunction,
+                        fakeStorage: config.sandbox.fakeStorage,
+                        filePath: document.uri.fsPath,
+                        functionDeclarationSource:
+                            selectedFunctionDeclarationSource,
+                        promptedArguments:
+                            await resolveFunctionArguments(callableFunction),
+                        sandboxEnabled,
+                    })
+                    break
+                }
+
                 sourceCode = extractSelection(document, editor.selection)
                 sourceLineStart = editor.selection.start.line + 1
                 sourceLineEnd = editor.selection.end.line + 1
@@ -155,15 +212,37 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                     sandboxEnabled,
                 })
                 break
+            case 'function':
+                callableFunction = findFunctionAtPosition(
+                    document,
+                    resolveMethodPosition(editor, target),
+                )
+                sourceCode = document
+                    .getText()
+                    .slice(callableFunction.start, callableFunction.end + 1)
+                sourceLineStart =
+                    document.positionAt(callableFunction.start).line + 1
+                sourceLineEnd =
+                    document.positionAt(callableFunction.end).line + 1
+                payload = buildFunctionPayload({
+                    callableFunction,
+                    fakeStorage: config.sandbox.fakeStorage,
+                    filePath: document.uri.fsPath,
+                    promptedArguments:
+                        await resolveFunctionArguments(callableFunction),
+                    sandboxEnabled,
+                })
+                break
             default:
                 throw new Error(`Unsupported run mode: ${String(mode)}`)
         }
 
         const result = await executeTinker(
             {
+                callableFunction,
                 filePath: document.uri.fsPath,
                 method,
-                mode,
+                mode: resolvedMode,
                 payload,
                 phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
@@ -179,9 +258,10 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
 
         await renderExecutionReport(
             {
+                callableFunction,
                 filePath: document.uri.fsPath,
                 method,
-                mode,
+                mode: resolvedMode,
                 payload,
                 phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
@@ -236,6 +316,23 @@ async function resolveMethodArguments(
         }
 
         const value = await promptForParameter(method, parameter)
+        argumentsList[index] = value
+    }
+
+    return argumentsList
+}
+
+async function resolveFunctionArguments(
+    callableFunction: FunctionInfo,
+): Promise<Record<number, string>> {
+    const argumentsList: Record<number, string> = {}
+
+    for (const [index, parameter] of callableFunction.parameters.entries()) {
+        if (parameter.hasDefault) {
+            continue
+        }
+
+        const value = await promptForParameter(callableFunction, parameter)
         argumentsList[index] = value
     }
 

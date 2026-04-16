@@ -14,6 +14,7 @@ export interface RunSummary {
     sourceLineEnd?: number
     className?: string
     methodName?: string
+    functionName?: string
 }
 
 export interface RunReport {

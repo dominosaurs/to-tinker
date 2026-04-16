@@ -108,6 +108,23 @@ describe('result view rendering', () => {
         expect(html).not.toContain('>selection<')
     })
 
+    it('renders function mode with a short target label', async () => {
+        const html = await renderResultView({
+            status: 'success',
+            summary: {
+                filePath: '/tmp/helpers.php',
+                functionName: 'build_report',
+                mode: 'function',
+                rootPath: '/tmp',
+                sandboxEnabled: true,
+            },
+        })
+
+        expect(html).toContain('Function')
+        expect(html).toContain('Target')
+        expect(html).toContain('build_report')
+    })
+
     it('renders distinct sandbox chip states', async () => {
         const sandboxedHtml = await renderResultView({
             status: 'success',
