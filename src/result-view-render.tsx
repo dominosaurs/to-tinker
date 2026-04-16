@@ -1,4 +1,3 @@
-import * as path from 'node:path'
 import {
     createBundledHighlighter,
     createSingletonShorthands,
@@ -96,7 +95,7 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
         targetLabel:
             summary.kind === 'method' && summary.methodName
                 ? `${summary.className ?? '?'}::${summary.methodName}`
-                : path.basename(summary.filePath),
+                : basename(summary.filePath),
     }
 }
 
@@ -336,17 +335,17 @@ function styles(): string {
     return `
         :root {
             color-scheme: light dark;
-            --bg: var(--vscode-editor-background);
-            --fg: var(--vscode-editor-foreground);
-            --muted: var(--vscode-descriptionForeground);
-            --border: var(--vscode-panel-border);
+            --bg: var(--vscode-editor-background, #111827);
+            --fg: var(--vscode-editor-foreground, #e5e7eb);
+            --muted: var(--vscode-descriptionForeground, #94a3b8);
+            --border: var(--vscode-panel-border, #334155);
             --ok: #2f9e44;
             --error: #e03131;
             --info: #4dabf7;
             --notice: #f08c00;
             --run: #f08c00;
             --timeout: #c77dff;
-            --code-bg: var(--vscode-textCodeBlock-background);
+            --code-bg: var(--vscode-textCodeBlock-background, #1f2937);
         }
         * { box-sizing: border-box; }
         body {
@@ -354,7 +353,7 @@ function styles(): string {
             padding: 24px;
             background: var(--bg);
             color: var(--fg);
-            font: 14px/1.5 var(--vscode-font-family);
+            font: 14px/1.5 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
         }
         h2 {
             margin: 20px 0 10px;
@@ -440,7 +439,7 @@ function styles(): string {
         pre {
             margin: 0;
             padding: 14px 16px;
-            font: 13px/1.45 var(--vscode-editor-font-family);
+            font: 13px/1.45 var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
             white-space: pre-wrap;
             word-break: break-word;
             tab-size: 4;
@@ -453,7 +452,7 @@ function styles(): string {
             margin-bottom: 10px;
         }
         .code-lines {
-            font: 13px/1.45 var(--vscode-editor-font-family);
+            font: 13px/1.45 var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
             tab-size: 4;
         }
         .line {
@@ -519,6 +518,11 @@ function shortPath(filePath: string, rootPath: string): string {
     return filePath.startsWith(rootPath)
         ? filePath.slice(rootPath.length + 1)
         : filePath
+}
+
+function basename(filePath: string): string {
+    const normalized = filePath.replaceAll('\\', '/')
+    return normalized.split('/').at(-1) || filePath
 }
 
 function extractElapsed(value: string): string | undefined {
