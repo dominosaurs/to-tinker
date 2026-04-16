@@ -15,6 +15,11 @@ const log = new Log()
 const registry = new RunRegistry()
 const codeLensProvider = new ToTinkerCodeLensProvider()
 
+interface RunRequest {
+    requestedMode: RunMode
+    target?: unknown
+}
+
 export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
     codeLensProvider.register(context)
@@ -24,7 +29,10 @@ export function activate(context: vscode.ExtensionContext): void {
             vscode.commands.registerCommand(
                 command,
                 async (...args: unknown[]) => {
-                    await executeRun(mode, args[0])
+                    await runRequest({
+                        requestedMode: mode,
+                        target: args[0],
+                    })
                 },
             ),
         )
@@ -32,7 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.commands.registerCommand(COMMANDS.runPrimary, async () => {
-            await runPrimary()
+            await runPrimaryRequest()
         }),
         vscode.commands.registerCommand(COMMANDS.showLogs, async () => {
             log.show()
@@ -43,13 +51,19 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand(
             COMMANDS.runMethodAt,
             async (uri: vscode.Uri, position: vscode.Position) => {
-                await executeRun('method', { position, uri })
+                await runRequest({
+                    requestedMode: 'method',
+                    target: { position, uri },
+                })
             },
         ),
         vscode.commands.registerCommand(
             COMMANDS.runFunctionAt,
             async (uri: vscode.Uri, position: vscode.Position) => {
-                await executeRun('function', { position, uri })
+                await runRequest({
+                    requestedMode: 'function',
+                    target: { position, uri },
+                })
             },
         ),
     )
@@ -74,9 +88,9 @@ export function deactivate(): void {
     output.dispose()
 }
 
-async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
+async function runRequest(runRequest: RunRequest): Promise<void> {
     try {
-        const editor = resolveEditor(target)
+        const editor = resolveEditor(runRequest.target)
         if (!editor) {
             throw new Error('Open a PHP editor first.')
         }
@@ -101,10 +115,10 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
 
         const planned = planRun({
             document,
-            requestedMode: mode,
+            requestedMode: runRequest.requestedMode,
             selection: editor.selection,
             selectionsCount: editor.selections.length,
-            targetPosition: resolveTargetPosition(editor, target),
+            targetPosition: resolveTargetPosition(editor, runRequest.target),
         })
         if (!planned.ok) {
             throw new Error(planned.error.message)
@@ -120,7 +134,7 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
             promptForParameter,
         )
 
-        const request = {
+        const executionRequest = {
             callableFunction: prepared.callableFunction,
             filePath: document.uri.fsPath,
             method: prepared.method,
@@ -134,16 +148,21 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
             workspace: environment.workspace,
         }
 
-        const result = await executeTinker(request, output, registry, log)
+        const result = await executeTinker(
+            executionRequest,
+            output,
+            registry,
+            log,
+        )
 
-        await renderExecutionReport(request, result, output)
+        await renderExecutionReport(executionRequest, result, output)
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         void vscode.window.showErrorMessage(message)
     }
 }
 
-async function runPrimary(): Promise<void> {
+async function runPrimaryRequest(): Promise<void> {
     const editor = vscode.window.activeTextEditor
     if (!editor) {
         void vscode.window.showErrorMessage('Open a PHP editor first.')
@@ -157,8 +176,9 @@ async function runPrimary(): Promise<void> {
         return
     }
 
-    const mode = editor.selection.isEmpty ? 'line' : 'selection'
-    await executeRun(mode, undefined)
+    await runRequest({
+        requestedMode: editor.selection.isEmpty ? 'line' : 'selection',
+    })
 }
 
 async function toggleSandbox(): Promise<void> {
