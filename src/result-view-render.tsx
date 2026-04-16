@@ -568,7 +568,18 @@ function detectLanguage(
 }
 
 function formatMode(value: string): string {
-    return value.charAt(0).toUpperCase() + value.slice(1)
+    switch (value) {
+        case 'selection':
+            return 'Selected Code'
+        case 'line':
+            return 'Line'
+        case 'file':
+            return 'File'
+        case 'method':
+            return 'Method'
+        default:
+            return value.charAt(0).toUpperCase() + value.slice(1)
+    }
 }
 
 function escapeHtml(value: string): string {
