@@ -512,6 +512,194 @@ Inspiring::quote();`,
         )
     })
 
+    it('runs line inside a method as snippet-only smart capture', async () => {
+        const document = createTextDocument(`<?php
+class ReportRunner {
+    public function build() {
+        $foo = 1;
+        $bar = 2;
+    }
+}`)
+        const cursor = new vscode.Selection(
+            new vscode.Position(4, 5),
+            new vscode.Position(4, 5),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runLine')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$bar = 2;',
+                smartCapture: true,
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'line',
+                sourceLineEnd: 5,
+                sourceLineStart: 5,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('runs selection inside a method as snippet-only smart capture', async () => {
+        const document = createTextDocument(`<?php
+class ReportRunner {
+    public function build() {
+        $foo = 1;
+        $bar = 2;
+    }
+}`)
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                new vscode.Position(3, 8),
+                new vscode.Position(3, 16),
+            ),
+            selections: [
+                new vscode.Selection(
+                    new vscode.Position(3, 8),
+                    new vscode.Position(3, 16),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runSelection')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$foo = 1',
+                smartCapture: true,
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'selection',
+                sourceLineEnd: 4,
+                sourceLineStart: 4,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('runs line inside a plain function as snippet-only smart capture', async () => {
+        const document = createTextDocument(`<?php
+function build() {
+    $foo = 1;
+    $bar = 2;
+}`)
+        const cursor = new vscode.Selection(
+            new vscode.Position(3, 5),
+            new vscode.Position(3, 5),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runLine')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$bar = 2;',
+                smartCapture: true,
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'line',
+                sourceLineEnd: 4,
+                sourceLineStart: 4,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('runs selection inside a plain function as snippet-only smart capture', async () => {
+        const document = createTextDocument(`<?php
+function build() {
+    $foo = 1;
+    $bar = 2;
+}`)
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                new vscode.Position(2, 4),
+                new vscode.Position(2, 12),
+            ),
+            selections: [
+                new vscode.Selection(
+                    new vscode.Position(2, 4),
+                    new vscode.Position(2, 12),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runSelection')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: '$foo = 1',
+                smartCapture: true,
+            }),
+        )
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'selection',
+                sourceLineEnd: 3,
+                sourceLineStart: 3,
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
     it('treats a full method declaration selection as method mode', async () => {
         const source = `<?php
 class ReportRunner {

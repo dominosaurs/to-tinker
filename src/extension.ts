@@ -10,8 +10,10 @@ import {
     type FunctionInfo,
     findFunctionAtPosition,
     findFunctionMatchingSelection,
+    findFunctions,
     findMethodAtPosition,
     findMethodMatchingSelection,
+    findMethods,
     type MethodInfo,
     parseSelectedFunctionDeclaration,
 } from './extraction'
@@ -185,6 +187,27 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                     })
                     break
                 }
+                {
+                    const enclosingCallable =
+                        findEnclosingMethod(document, editor.selection.end) ??
+                        findEnclosingFunction(document, editor.selection.end)
+                    if (enclosingCallable) {
+                        sourceCode = extractSelection(
+                            document,
+                            editor.selection,
+                        )
+                        sourceLineStart = editor.selection.start.line + 1
+                        sourceLineEnd = editor.selection.end.line + 1
+                        payload = buildTinkerPayload({
+                            fakeStorage: config.sandbox.fakeStorage,
+                            filePath: document.uri.fsPath,
+                            sandboxEnabled,
+                            selectionOrFileCode: sourceCode,
+                            smartCapture: true,
+                        })
+                        break
+                    }
+                }
 
                 sourceCode = extractPrefixToSelectionEnd(
                     document,
@@ -214,6 +237,28 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                 break
             case 'line': {
                 const lineNumber = editor.selection.active.line
+                const enclosingCallable =
+                    findEnclosingMethod(document, editor.selection.active) ??
+                    findEnclosingFunction(document, editor.selection.active)
+                if (enclosingCallable) {
+                    sourceCode = extractSelection(
+                        document,
+                        new vscode.Selection(
+                            new vscode.Position(lineNumber, 0),
+                            document.lineAt(lineNumber).range.end,
+                        ),
+                    )
+                    sourceLineStart = lineNumber + 1
+                    sourceLineEnd = lineNumber + 1
+                    payload = buildTinkerPayload({
+                        fakeStorage: config.sandbox.fakeStorage,
+                        filePath: document.uri.fsPath,
+                        sandboxEnabled,
+                        selectionOrFileCode: sourceCode,
+                        smartCapture: true,
+                    })
+                    break
+                }
                 sourceCode = extractPrefixToLine(
                     document,
                     editor.selection.active,
@@ -412,4 +457,32 @@ function resolveMethodPosition(
     }
 
     return editor.selection.active
+}
+
+function findEnclosingMethod(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+): MethodInfo | undefined {
+    const cursorOffset = document.offsetAt(position)
+    return findMethods(document)
+        .filter(
+            method =>
+                cursorOffset >= method.start && cursorOffset <= method.end,
+        )
+        .sort((left, right) => left.start - right.start)
+        .at(-1)
+}
+
+function findEnclosingFunction(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+): FunctionInfo | undefined {
+    const cursorOffset = document.offsetAt(position)
+    return findFunctions(document)
+        .filter(
+            callable =>
+                cursorOffset >= callable.start && cursorOffset <= callable.end,
+        )
+        .sort((left, right) => left.start - right.start)
+        .at(-1)
 }
