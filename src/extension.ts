@@ -3,17 +3,12 @@ import { ToTinkerCodeLensProvider } from './code-lens'
 import { COMMANDS, type RunMode } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
 import { planRun } from './core/plan/plan-run'
-import type { FunctionInfo, MethodInfo } from './extraction'
+import { prepareExecution } from './core/prepare/prepare-execution'
 import { Log } from './log'
 import { Output } from './output'
 import { promptForParameter } from './php'
 import { prepareExecutionEnvironment } from './preflight'
 import { executeTinker, RunRegistry, renderExecutionReport } from './runner'
-import {
-    buildFunctionPayload,
-    buildMethodPayload,
-    buildTinkerPayload,
-} from './wrapper'
 
 const output = new Output()
 const log = new Log()
@@ -109,58 +104,39 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
             requestedMode: mode,
             selection: editor.selection,
             selectionsCount: editor.selections.length,
-            targetPosition: resolveMethodPosition(editor, target),
+            targetPosition: resolveTargetPosition(editor, target),
         })
         if (!planned.ok) {
             throw new Error(planned.error.message)
         }
-        const plan = planned.plan
 
-        const method = plan.strategy === 'method' ? plan.method : undefined
-        const callableFunction =
-            plan.strategy === 'function' ? plan.callableFunction : undefined
-        const payload = await buildPayload(plan, {
-            fakeStorage: config.sandbox.fakeStorage,
+        const prepared = await prepareExecution(
+            planned.plan,
+            {
+                fakeStorage: config.sandbox.fakeStorage,
+                filePath: document.uri.fsPath,
+                sandboxEnabled,
+            },
+            promptForParameter,
+        )
+
+        const request = {
+            callableFunction: prepared.callableFunction,
             filePath: document.uri.fsPath,
+            method: prepared.method,
+            mode: prepared.plan.mode,
+            payload: prepared.payload,
+            phpExecutable: environment.phpExecutable,
             sandboxEnabled,
-        })
+            sourceCode: prepared.plan.sourceCode,
+            sourceLineEnd: prepared.plan.sourceLineEnd,
+            sourceLineStart: prepared.plan.sourceLineStart,
+            workspace: environment.workspace,
+        }
 
-        const result = await executeTinker(
-            {
-                callableFunction,
-                filePath: document.uri.fsPath,
-                method,
-                mode: plan.mode,
-                payload,
-                phpExecutable: environment.phpExecutable,
-                sandboxEnabled,
-                sourceCode: plan.sourceCode,
-                sourceLineEnd: plan.sourceLineEnd,
-                sourceLineStart: plan.sourceLineStart,
-                workspace: environment.workspace,
-            },
-            output,
-            registry,
-            log,
-        )
+        const result = await executeTinker(request, output, registry, log)
 
-        await renderExecutionReport(
-            {
-                callableFunction,
-                filePath: document.uri.fsPath,
-                method,
-                mode: plan.mode,
-                payload,
-                phpExecutable: environment.phpExecutable,
-                sandboxEnabled,
-                sourceCode: plan.sourceCode,
-                sourceLineEnd: plan.sourceLineEnd,
-                sourceLineStart: plan.sourceLineStart,
-                workspace: environment.workspace,
-            },
-            result,
-            output,
-        )
+        await renderExecutionReport(request, result, output)
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         void vscode.window.showErrorMessage(message)
@@ -193,79 +169,6 @@ async function toggleSandbox(): Promise<void> {
     )
 }
 
-async function buildPayload(
-    plan: import('./core/types/run-plan').RunPlan,
-    context: {
-        fakeStorage: boolean
-        filePath: string
-        sandboxEnabled: boolean
-    },
-): Promise<string> {
-    switch (plan.strategy) {
-        case 'eval':
-            return buildTinkerPayload({
-                fakeStorage: context.fakeStorage,
-                filePath: context.filePath,
-                sandboxEnabled: context.sandboxEnabled,
-                selectionOrFileCode: plan.sourceCode,
-                smartCapture: plan.smartCapture,
-            })
-        case 'method':
-            return buildMethodPayload({
-                fakeStorage: context.fakeStorage,
-                filePath: context.filePath,
-                method: plan.method,
-                promptedArguments: await resolveMethodArguments(plan.method),
-                sandboxEnabled: context.sandboxEnabled,
-            })
-        case 'function':
-            return buildFunctionPayload({
-                callableFunction: plan.callableFunction,
-                fakeStorage: context.fakeStorage,
-                filePath: context.filePath,
-                functionDeclarationSource: plan.functionDeclarationSource,
-                promptedArguments: await resolveFunctionArguments(
-                    plan.callableFunction,
-                ),
-                sandboxEnabled: context.sandboxEnabled,
-            })
-    }
-}
-
-async function resolveMethodArguments(
-    method: MethodInfo,
-): Promise<Record<number, string>> {
-    const argumentsList: Record<number, string> = {}
-
-    for (const [index, parameter] of method.parameters.entries()) {
-        if (parameter.resolvableByContainer || parameter.hasDefault) {
-            continue
-        }
-
-        const value = await promptForParameter(method, parameter)
-        argumentsList[index] = value
-    }
-
-    return argumentsList
-}
-
-async function resolveFunctionArguments(
-    callableFunction: FunctionInfo,
-): Promise<Record<number, string>> {
-    const argumentsList: Record<number, string> = {}
-
-    for (const [index, parameter] of callableFunction.parameters.entries()) {
-        if (parameter.hasDefault) {
-            continue
-        }
-
-        const value = await promptForParameter(callableFunction, parameter)
-        argumentsList[index] = value
-    }
-
-    return argumentsList
-}
-
 function resolveEditor(target: unknown): vscode.TextEditor | undefined {
     if (
         target &&
@@ -287,7 +190,7 @@ function resolveEditor(target: unknown): vscode.TextEditor | undefined {
     return vscode.window.activeTextEditor
 }
 
-function resolveMethodPosition(
+function resolveTargetPosition(
     editor: vscode.TextEditor,
     target: unknown,
 ): vscode.Position {
