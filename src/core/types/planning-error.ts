@@ -1,5 +1,7 @@
 export type PlanningErrorKind =
+    | 'incomplete-boundary'
     | 'multiple-selections'
+    | 'no-callable-at-position'
     | 'unsupported-target'
     | 'unsupported-mode'
 

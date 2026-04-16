@@ -199,6 +199,10 @@ function isCapturableStatement(source: string): boolean {
         return false
     }
 
+    if (!hasBalancedStructure(trimmed)) {
+        return false
+    }
+
     return (
         isStandaloneExpression(trimmed) ||
         hasTopLevelAssignment(stripTrailingSemicolon(trimmed)) ||

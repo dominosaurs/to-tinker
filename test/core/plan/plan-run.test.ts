@@ -115,7 +115,7 @@ describe('planRun', () => {
     it('returns a typed planning error for multiple selections', () => {
         const document = createTextDocument('<?php\n$value = 1;\n')
         const start = new vscode.Position(1, 0)
-        const end = new vscode.Position(1, 10)
+        const end = new vscode.Position(1, 22)
 
         const result = planRun({
             documentPath: document.uri.fsPath,
@@ -134,6 +134,63 @@ describe('planRun', () => {
             error: {
                 kind: 'multiple-selections',
                 message: 'Multiple selections are not supported.',
+            },
+            ok: false,
+        })
+    })
+
+    it('returns a typed planning error for incomplete top-level selection boundaries', () => {
+        const document = createTextDocument(
+            '<?php\n$value = number_format(1000);\n',
+        )
+        const start = new vscode.Position(1, 0)
+        const end = new vscode.Position(1, 25)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: document.offsetAt(end),
+            selectionEndLine: end.line,
+            selectionEndOffset: document.offsetAt(end),
+            selectionStartLine: start.line,
+            selectionStartOffset: document.offsetAt(start),
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            error: {
+                kind: 'incomplete-boundary',
+                message:
+                    'Selection is not a complete PHP statement or standalone expression. Select a full statement, or a complete expression like $user->email.',
+            },
+            ok: false,
+        })
+    })
+
+    it('returns a typed planning error when no method exists at the target position', () => {
+        const document = createTextDocument('<?php\n$value = 1;\n')
+        const position = new vscode.Position(1, 3)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'method',
+            selectionActiveOffset: document.offsetAt(position),
+            selectionEndLine: position.line,
+            selectionEndOffset: document.offsetAt(position),
+            selectionStartLine: position.line,
+            selectionStartOffset: document.offsetAt(position),
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            error: {
+                kind: 'no-callable-at-position',
+                message:
+                    'Cursor is not inside a supported concrete class method.',
             },
             ok: false,
         })

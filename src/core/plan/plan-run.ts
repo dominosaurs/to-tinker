@@ -11,6 +11,10 @@ import {
     parseSelectedFunctionDeclarationInText,
 } from '../discovery/callable-discovery'
 import {
+    INCOMPLETE_SNIPPET_ERROR,
+    prepareEvalSource,
+} from '../prepare/prepare-eval-source'
+import {
     extractFileFromText,
     extractPrefixToLineFromText,
     extractPrefixToOffsetFromText,
@@ -44,6 +48,13 @@ export type PlanRunResult =
     | { ok: true; plan: RunPlan }
     | { error: PlanningError; ok: false }
 
+class PlanningFailure extends Error {
+    constructor(readonly planningError: PlanningError) {
+        super(planningError.message)
+        this.name = 'PlanningFailure'
+    }
+}
+
 export function planRun(input: PlanRunInput): PlanRunResult {
     try {
         switch (input.requestedMode) {
@@ -67,11 +78,15 @@ export function planRun(input: PlanRunInput): PlanRunResult {
                 }
         }
     } catch (error) {
+        if (error instanceof PlanningFailure) {
+            return {
+                error: error.planningError,
+                ok: false,
+            }
+        }
+
         return {
-            error: {
-                kind: 'unsupported-target',
-                message: error instanceof Error ? error.message : String(error),
-            },
+            error: mapUnexpectedPlanningError(error),
             ok: false,
         }
     }
@@ -153,15 +168,18 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         }
     }
 
+    const prefixSource = extractPrefixToOffsetFromText(
+        documentText,
+        selectionEndOffset,
+    )
+    assertCompleteEvalBoundary(prefixSource)
+
     return {
         ok: true,
         plan: {
             mode: 'selection',
             smartCapture: true,
-            sourceCode: extractPrefixToOffsetFromText(
-                documentText,
-                selectionEndOffset,
-            ),
+            sourceCode: prefixSource,
             sourceLineEnd: input.selectionEndLine + 1,
             sourceLineStart: 1,
             strategy: 'eval',
@@ -215,21 +233,32 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
 }
 
 function planMethodRun(input: PlanRunInput): MethodRunPlan {
-    const method = findMethodAtOffset(
-        input.documentText,
-        input.targetOffset ?? input.selectionActiveOffset,
-    )
-
-    return createMethodPlan(input, method)
+    const offset = input.targetOffset ?? input.selectionActiveOffset
+    try {
+        const method = findMethodAtOffset(input.documentText, offset)
+        return createMethodPlan(input, method)
+    } catch {
+        throw new PlanningFailure({
+            kind: 'no-callable-at-position',
+            message: 'Cursor is not inside a supported concrete class method.',
+        })
+    }
 }
 
 function planFunctionRun(input: PlanRunInput): FunctionRunPlan {
-    const callableFunction = findFunctionAtOffset(
-        input.documentText,
-        input.targetOffset ?? input.selectionActiveOffset,
-    )
-
-    return createFunctionPlan(input, callableFunction)
+    const offset = input.targetOffset ?? input.selectionActiveOffset
+    try {
+        const callableFunction = findFunctionAtOffset(
+            input.documentText,
+            offset,
+        )
+        return createFunctionPlan(input, callableFunction)
+    } catch {
+        throw new PlanningFailure({
+            kind: 'no-callable-at-position',
+            message: 'Unable to resolve function at this position.',
+        })
+    }
 }
 
 function createMethodPlan(
@@ -265,6 +294,38 @@ function createFunctionPlan(
         sourceLineStart:
             lineNumberAtOffset(input.documentText, callableFunction.start) + 1,
         strategy: 'function',
+    }
+}
+
+function mapUnexpectedPlanningError(error: unknown): PlanningError {
+    if (error instanceof Error && error.message === INCOMPLETE_SNIPPET_ERROR) {
+        return {
+            kind: 'incomplete-boundary',
+            message: error.message,
+        }
+    }
+
+    return {
+        kind: 'unsupported-target',
+        message: error instanceof Error ? error.message : String(error),
+    }
+}
+
+function assertCompleteEvalBoundary(source: string): void {
+    try {
+        prepareEvalSource(source, true)
+    } catch (error) {
+        if (
+            error instanceof Error &&
+            error.message === INCOMPLETE_SNIPPET_ERROR
+        ) {
+            throw new PlanningFailure({
+                kind: 'incomplete-boundary',
+                message: error.message,
+            })
+        }
+
+        throw error
     }
 }
 
