@@ -11,4 +11,4 @@ export const COMMANDS = {
 
 export type CommandName = keyof typeof COMMANDS
 
-export type RunKind = 'selection' | 'file' | 'line' | 'method'
+export type RunMode = 'selection' | 'file' | 'line' | 'method'

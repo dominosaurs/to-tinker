@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import * as vscode from 'vscode'
 import { stripAnsi } from './ansi'
-import type { RunKind } from './commands'
+import type { RunMode } from './commands'
 import { getConfig } from './config'
 import type { MethodInfo } from './extraction'
 import type { Log } from './log'
@@ -11,7 +11,7 @@ import type { LaravelWorkspace } from './workspace'
 export interface ExecutionRequest {
     workspace: LaravelWorkspace
     phpExecutable: string
-    kind: RunKind
+    mode: RunMode
     payload: string
     filePath: string
     sandboxEnabled: boolean
@@ -69,7 +69,7 @@ export async function executeTinker(
     const config = getConfig()
     const timeoutMs = config.timeoutSeconds * 1000
     log.info(
-        `spawn start kind=${request.kind} sandbox=${request.sandboxEnabled ? 'on' : 'off'} root=${request.workspace.rootPath}`,
+        `spawn start mode=${request.mode} sandbox=${request.sandboxEnabled ? 'on' : 'off'} root=${request.workspace.rootPath}`,
     )
     await output.show({
         diagnostics: `root=${request.workspace.rootPath}`,
@@ -222,8 +222,8 @@ function buildSummary(request: ExecutionRequest): RunSummary {
     return {
         className: request.method?.className,
         filePath: request.filePath,
-        kind: request.kind,
         methodName: request.method?.methodName,
+        mode: request.mode,
         phpExecutable: request.phpExecutable,
         rootPath: request.workspace.rootPath,
         sandboxEnabled: request.sandboxEnabled,

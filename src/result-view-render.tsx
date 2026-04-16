@@ -46,7 +46,7 @@ interface ViewModel {
     elapsed?: string
     error?: string
     fileLabel: string
-    kind: string
+    mode: string
     notice?: string
     output?: HighlightLine[]
     sandboxLabel: string
@@ -72,12 +72,12 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
         elapsed: extractElapsed(diagnostics),
         error: report.error,
         fileLabel: `${shortPath(summary.filePath, summary.rootPath)}${formatLineRange(summary.sourceLineStart, summary.sourceLineEnd)}`,
-        kind: summary.kind,
+        mode: summary.mode,
         notice: stripElapsed(diagnostics) || undefined,
         output: report.result
             ? await highlightLines(
                   report.result,
-                  detectLanguage(summary.kind, report.result, false),
+                  detectLanguage(summary.mode, report.result, false),
               )
             : undefined,
         sandboxLabel: summary.sandboxEnabled ? 'sandbox' : 'no sandbox',
@@ -87,7 +87,7 @@ async function toViewModel(report: RunReport): Promise<ViewModel> {
         sourceLineStart: summary.sourceLineStart,
         statusLabel: report.status === 'success' ? 'success' : report.status,
         targetLabel:
-            summary.kind === 'method' && summary.methodName
+            summary.mode === 'method' && summary.methodName
                 ? `${summary.className ?? '?'}::${summary.methodName}`
                 : basename(summary.filePath),
     }
@@ -162,16 +162,16 @@ function Header({ view }: { view: ViewModel }): JSX.Element {
             </div>
             <div class="meta-stack">
                 <div class="meta-row">
-                    <span class="meta-label">Kind</span>
-                    <span class="meta-value meta-value-kind">
-                        {formatKind(view.kind)}
+                    <span class="meta-label">Mode</span>
+                    <span class="meta-value meta-value-mode">
+                        {formatMode(view.mode)}
                     </span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">File</span>
                     <span class="meta-value">{view.fileLabel}</span>
                 </div>
-                {view.kind === 'method' ? (
+                {view.mode === 'method' ? (
                     <div class="meta-row">
                         <span class="meta-label">Target</span>
                         <span class="meta-value">{view.targetLabel}</span>
@@ -405,7 +405,7 @@ function styles(): string {
             font-size: 13px;
             word-break: break-word;
         }
-        .meta-value-kind {
+        .meta-value-mode {
             color: var(--info);
             font-weight: 700;
         }
@@ -548,11 +548,11 @@ function formatLineRange(start?: number, end?: number): string {
 }
 
 function detectLanguage(
-    kind: string,
+    mode: string,
     value: string,
     isSource: boolean,
 ): HighlightLanguage {
-    if (isSource || kind === 'method') {
+    if (isSource || mode === 'method') {
         return 'php'
     }
 
@@ -567,7 +567,7 @@ function detectLanguage(
     return 'text'
 }
 
-function formatKind(value: string): string {
+function formatMode(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1)
 }
 

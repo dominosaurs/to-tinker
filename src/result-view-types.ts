@@ -1,5 +1,5 @@
 export interface RunSummary {
-    kind: string
+    mode: string
     filePath: string
     rootPath: string
     phpExecutable?: string

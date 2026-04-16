@@ -126,7 +126,7 @@ describe('extension orchestration', () => {
         expect(buildTinkerPayload).toHaveBeenCalled()
         expect(executeTinker).toHaveBeenCalledWith(
             expect.objectContaining({
-                kind: 'selection',
+                mode: 'selection',
                 phpExecutable: '/usr/bin/php',
             }),
             expect.anything(),
@@ -165,7 +165,7 @@ describe('extension orchestration', () => {
         )
         expect(executeTinker).toHaveBeenCalledWith(
             expect.objectContaining({
-                kind: 'line',
+                mode: 'line',
                 sourceLineEnd: 3,
                 sourceLineStart: 3,
             }),

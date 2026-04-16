@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import { ToTinkerCodeLensProvider } from './code-lens'
-import { COMMANDS, type RunKind } from './commands'
+import { COMMANDS, type RunMode } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
 import {
     extractFile,
@@ -25,12 +25,12 @@ export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
     codeLensProvider.register(context)
 
-    const register = (command: string, kind: RunKind): void => {
+    const register = (command: string, mode: RunMode): void => {
         context.subscriptions.push(
             vscode.commands.registerCommand(
                 command,
                 async (...args: unknown[]) => {
-                    await executeRun(kind, args[0])
+                    await executeRun(mode, args[0])
                 },
             ),
         )
@@ -74,7 +74,7 @@ export function deactivate(): void {
     output.dispose()
 }
 
-async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
+async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
     try {
         const editor = resolveEditor(target)
         if (!editor) {
@@ -96,7 +96,7 @@ async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
         let sourceLineStart: number | undefined
         let sourceLineEnd: number | undefined
 
-        switch (kind) {
+        switch (mode) {
             case 'selection':
                 if (editor.selections.length !== 1) {
                     throw new Error('Multiple selections are not supported.')
@@ -156,14 +156,14 @@ async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
                 })
                 break
             default:
-                throw new Error(`Unsupported run kind: ${String(kind)}`)
+                throw new Error(`Unsupported run mode: ${String(mode)}`)
         }
 
         const result = await executeTinker(
             {
                 filePath: document.uri.fsPath,
-                kind,
                 method,
+                mode,
                 payload,
                 phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
@@ -180,8 +180,8 @@ async function executeRun(kind: RunKind, target?: unknown): Promise<void> {
         await renderExecutionReport(
             {
                 filePath: document.uri.fsPath,
-                kind,
                 method,
+                mode,
                 payload,
                 phpExecutable: environment.phpExecutable,
                 sandboxEnabled,
@@ -213,8 +213,8 @@ async function runPrimary(): Promise<void> {
         return
     }
 
-    const kind = editor.selection.isEmpty ? 'file' : 'selection'
-    await executeRun(kind, undefined)
+    const mode = editor.selection.isEmpty ? 'file' : 'selection'
+    await executeRun(mode, undefined)
 }
 
 async function toggleSandbox(): Promise<void> {

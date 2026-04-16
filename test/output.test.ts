@@ -13,7 +13,7 @@ describe('output', () => {
             status: 'running',
             summary: {
                 filePath: '/tmp/demo.php',
-                kind: 'selection',
+                mode: 'selection',
                 rootPath: '/tmp',
                 sandboxEnabled: true,
             },
@@ -24,7 +24,7 @@ describe('output', () => {
             status: 'success',
             summary: {
                 filePath: '/tmp/demo.php',
-                kind: 'selection',
+                mode: 'selection',
                 rootPath: '/tmp',
                 sandboxEnabled: true,
             },
