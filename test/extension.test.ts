@@ -296,6 +296,7 @@ class Runner {
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
                 selectionOrFileCode: '$foo = 1;',
+                smartCapture: true,
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -305,6 +306,54 @@ class Runner {
             expect.anything(),
             expect.anything(),
             expect.anything(),
+        )
+    })
+
+    it('runs file mode with last-expression capture for final returnable lines', async () => {
+        const document = createTextDocument(`<?php
+use Illuminate\\Foundation\\Inspiring;
+
+function getRandom() {
+    return rand(1, 10);
+}
+
+getRandom();
+
+Inspiring::quote();
+`)
+        const cursor = new vscode.Selection(
+            new vscode.Position(8, 0),
+            new vscode.Position(8, 0),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runFile')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                selectionOrFileCode: `use Illuminate\\Foundation\\Inspiring;
+
+function getRandom() {
+    return rand(1, 10);
+}
+
+getRandom();
+
+Inspiring::quote();`,
+                smartCapture: true,
+            }),
         )
     })
 

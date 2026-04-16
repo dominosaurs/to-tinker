@@ -178,6 +178,7 @@ async function executeRun(mode: RunMode, target?: unknown): Promise<void> {
                     filePath: document.uri.fsPath,
                     sandboxEnabled,
                     selectionOrFileCode: sourceCode,
+                    smartCapture: true,
                 })
                 break
             case 'line': {

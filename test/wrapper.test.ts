@@ -91,6 +91,35 @@ describe('wrapper', () => {
         )
     })
 
+    it('captures the last top-level expression in file-shaped code with earlier statements', () => {
+        const transformed = `use Illuminate\\Foundation\\Inspiring;
+function getRandom() {
+    return rand(1, 10);
+}
+
+getRandom();
+return Inspiring::quote();`
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: `use Illuminate\\Foundation\\Inspiring;
+
+function getRandom() {
+    return rand(1, 10);
+}
+
+getRandom();
+
+Inspiring::quote();`,
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            `$__toTinkerUserCode = base64_decode('${Buffer.from(transformed, 'utf8').toString('base64')}');`,
+        )
+    })
+
     it('keeps assignments as statements in smart selections', () => {
         const payload = buildTinkerPayload({
             fakeStorage: false,
