@@ -1,62 +1,106 @@
-import * as vscode from 'vscode'
+import type * as vscode from 'vscode'
 
 export function extractSelection(
     document: vscode.TextDocument,
     selection: vscode.Selection,
 ): string {
-    if (selection.isEmpty) {
+    return extractSelectionFromText(
+        document.getText(),
+        document.offsetAt(selection.start),
+        document.offsetAt(selection.end),
+    )
+}
+
+export function extractSelectionFromText(
+    text: string,
+    startOffset: number,
+    endOffset: number,
+): string {
+    if (startOffset === endOffset) {
         throw new Error('Selection is empty. Select PHP code first.')
     }
 
-    const text = document.getText(selection).trim()
-    if (!text) {
+    const selectedText = text.slice(startOffset, endOffset).trim()
+    if (!selectedText) {
         throw new Error('Selection is empty. Select PHP code first.')
     }
 
-    return stripPhpTags(text)
+    return stripPhpTags(selectedText)
 }
 
 export function extractFile(document: vscode.TextDocument): string {
-    return stripPhpTags(document.getText())
+    return extractFileFromText(document.getText())
+}
+
+export function extractFileFromText(text: string): string {
+    return stripPhpTags(text)
 }
 
 export function extractPrefixToLine(
     document: vscode.TextDocument,
     position: vscode.Position,
 ): string {
-    const line = document.lineAt(position.line)
-    return stripPhpTags(
-        document.getText(
-            new vscode.Range(new vscode.Position(0, 0), line.range.end),
-        ),
-    )
+    return extractPrefixToLineFromText(document.getText(), position.line)
+}
+
+export function extractPrefixToLineFromText(
+    text: string,
+    lineNumber: number,
+): string {
+    return stripPhpTags(text.slice(0, lineEndOffset(text, lineNumber)))
 }
 
 export function extractPrefixToSelectionEnd(
     document: vscode.TextDocument,
     selection: vscode.Selection,
 ): string {
-    return stripPhpTags(
-        document.getText(
-            new vscode.Range(new vscode.Position(0, 0), selection.end),
-        ),
+    return extractPrefixToOffsetFromText(
+        document.getText(),
+        document.offsetAt(selection.end),
     )
+}
+
+export function extractPrefixToOffsetFromText(
+    text: string,
+    endOffset: number,
+): string {
+    return stripPhpTags(text.slice(0, endOffset))
 }
 
 export function extractLine(
     document: vscode.TextDocument,
     position: vscode.Position,
 ): string {
-    const line = document.lineAt(position.line)
-    const text = line.text.trim()
+    return extractLineFromText(document.getText(), position.line)
+}
 
-    if (!text) {
+export function extractLineFromText(text: string, lineNumber: number): string {
+    const { end, start } = lineBoundsAt(text, lineNumber)
+    const lineText = text.slice(start, end).trim()
+
+    if (!lineText) {
         throw new Error(
             'Current line is empty. Move the cursor to PHP code first.',
         )
     }
 
-    return stripPhpTags(text)
+    return stripPhpTags(lineText)
+}
+
+export function lineNumberAtOffset(text: string, offset: number): number {
+    let lineNumber = 0
+
+    for (let index = 0; index < Math.min(offset, text.length); index += 1) {
+        if (text[index] === '\n') {
+            lineNumber += 1
+        }
+    }
+
+    return lineNumber
+}
+
+export function lineEndOffset(text: string, lineNumber: number): number {
+    return lineBoundsAt(text, lineNumber).end
 }
 
 export function trimWhitespaceBounds(
@@ -83,4 +127,39 @@ export function stripPhpTags(text: string): string {
         .replace(/^<\?php\s*/u, '')
         .replace(/\?>\s*$/u, '')
         .trim()
+}
+
+function lineBoundsAt(
+    text: string,
+    lineNumber: number,
+): { start: number; end: number } {
+    let currentLine = 0
+    let start = 0
+
+    for (let index = 0; index < text.length; index += 1) {
+        if (currentLine === lineNumber) {
+            const end = text.indexOf('\n', index)
+            return {
+                end: end === -1 ? text.length : end,
+                start,
+            }
+        }
+
+        if (text[index] === '\n') {
+            currentLine += 1
+            start = index + 1
+        }
+    }
+
+    if (currentLine === lineNumber) {
+        return {
+            end: text.length,
+            start,
+        }
+    }
+
+    return {
+        end: text.length,
+        start: text.length,
+    }
 }

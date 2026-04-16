@@ -43,13 +43,12 @@ export function findMethodAtPosition(
     document: vscode.TextDocument,
     position: vscode.Position,
 ): MethodInfo {
-    const cursorOffset = document.offsetAt(position)
-    const methods = findMethods(document)
-    const target = methods
-        .filter(
-            method =>
-                cursorOffset >= method.start && cursorOffset <= method.end,
-        )
+    return findMethodAtOffset(document.getText(), document.offsetAt(position))
+}
+
+export function findMethodAtOffset(text: string, offset: number): MethodInfo {
+    const target = findMethodsInText(text)
+        .filter(method => offset >= method.start && offset <= method.end)
         .sort((left, right) => left.start - right.start)
         .at(-1)
 
@@ -66,12 +65,15 @@ export function findFunctionAtPosition(
     document: vscode.TextDocument,
     position: vscode.Position,
 ): FunctionInfo {
-    const cursorOffset = document.offsetAt(position)
-    const target = findFunctions(document)
-        .filter(
-            callable =>
-                cursorOffset >= callable.start && cursorOffset <= callable.end,
-        )
+    return findFunctionAtOffset(document.getText(), document.offsetAt(position))
+}
+
+export function findFunctionAtOffset(
+    text: string,
+    offset: number,
+): FunctionInfo {
+    const target = findFunctionsInText(text)
+        .filter(callable => offset >= callable.start && offset <= callable.end)
         .sort((left, right) => left.start - right.start)
         .at(-1)
 
@@ -83,14 +85,20 @@ export function findFunctionAtPosition(
 }
 
 export function findMethods(document: vscode.TextDocument): MethodInfo[] {
-    const text = document.getText()
+    return findMethodsInText(document.getText())
+}
+
+export function findMethodsInText(text: string): MethodInfo[] {
     const namespaceName = parseNamespace(text)
     const classes = parseClasses(text)
     return parseMethods(text, classes, namespaceName)
 }
 
 export function findFunctions(document: vscode.TextDocument): FunctionInfo[] {
-    const text = document.getText()
+    return findFunctionsInText(document.getText())
+}
+
+export function findFunctionsInText(text: string): FunctionInfo[] {
     const namespaceName = parseNamespace(text)
     const classes = parseClasses(text)
     return parseFunctions(text, classes, namespaceName)
@@ -100,16 +108,25 @@ export function findFunctionMatchingSelection(
     document: vscode.TextDocument,
     selection: vscode.Selection,
 ): FunctionInfo | undefined {
-    const text = document.getText()
-    const normalizedStart = document.offsetAt(selection.start)
-    const normalizedEnd = document.offsetAt(selection.end)
+    return findFunctionMatchingSelectionInText(
+        document.getText(),
+        document.offsetAt(selection.start),
+        document.offsetAt(selection.end),
+    )
+}
+
+export function findFunctionMatchingSelectionInText(
+    text: string,
+    startOffset: number,
+    endOffset: number,
+): FunctionInfo | undefined {
     const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
         text,
-        normalizedStart,
-        normalizedEnd,
+        startOffset,
+        endOffset,
     )
 
-    return findFunctions(document).find(
+    return findFunctionsInText(text).find(
         callable =>
             callable.start === trimmedStart && callable.end + 1 === trimmedEnd,
     )
@@ -119,16 +136,25 @@ export function findMethodMatchingSelection(
     document: vscode.TextDocument,
     selection: vscode.Selection,
 ): MethodInfo | undefined {
-    const text = document.getText()
-    const normalizedStart = document.offsetAt(selection.start)
-    const normalizedEnd = document.offsetAt(selection.end)
+    return findMethodMatchingSelectionInText(
+        document.getText(),
+        document.offsetAt(selection.start),
+        document.offsetAt(selection.end),
+    )
+}
+
+export function findMethodMatchingSelectionInText(
+    text: string,
+    startOffset: number,
+    endOffset: number,
+): MethodInfo | undefined {
     const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
         text,
-        normalizedStart,
-        normalizedEnd,
+        startOffset,
+        endOffset,
     )
 
-    return findMethods(document).find(
+    return findMethodsInText(text).find(
         method =>
             method.start === trimmedStart && method.end + 1 === trimmedEnd,
     )
@@ -138,17 +164,26 @@ export function parseSelectedFunctionDeclaration(
     document: vscode.TextDocument,
     selection: vscode.Selection,
 ): FunctionInfo | undefined {
-    const documentText = document.getText()
-    const normalizedStart = document.offsetAt(selection.start)
-    const normalizedEnd = document.offsetAt(selection.end)
-    const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
-        documentText,
-        normalizedStart,
-        normalizedEnd,
+    return parseSelectedFunctionDeclarationInText(
+        document.getText(),
+        document.offsetAt(selection.start),
+        document.offsetAt(selection.end),
     )
-    const selectedText = documentText.slice(trimmedStart, trimmedEnd)
+}
+
+export function parseSelectedFunctionDeclarationInText(
+    text: string,
+    startOffset: number,
+    endOffset: number,
+): FunctionInfo | undefined {
+    const [trimmedStart, trimmedEnd] = trimWhitespaceBounds(
+        text,
+        startOffset,
+        endOffset,
+    )
+    const selectedText = text.slice(trimmedStart, trimmedEnd)
     const declaration = selectedText.trim()
-    const namespaceName = parseNamespace(documentText)
+    const namespaceName = parseNamespace(text)
     const functionRegex =
         /(?:#\[[\s\S]*?\]\s*)*\bfunction\b\s*&?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\)\s*(?::\s*[\w\\|&?()\s]+)?\s*\{/u
     const match = declaration.match(functionRegex)

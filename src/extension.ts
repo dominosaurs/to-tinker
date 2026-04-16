@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import { ToTinkerCodeLensProvider } from './code-lens'
 import { COMMANDS, type RunMode } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
-import { planRun } from './core/plan/plan-run'
+import { type PlanRunInput, planRun } from './core/plan/plan-run'
 import { prepareExecution } from './core/prepare/prepare-execution'
 import { Log } from './log'
 import { Output } from './output'
@@ -113,13 +113,13 @@ async function runRequest(runRequest: RunRequest): Promise<void> {
         const config = getConfig()
         const sandboxEnabled = config.sandbox.defaultEnabled
 
-        const planned = planRun({
-            document,
-            requestedMode: runRequest.requestedMode,
-            selection: editor.selection,
-            selectionsCount: editor.selections.length,
-            targetPosition: resolveTargetPosition(editor, runRequest.target),
-        })
+        const planned = planRun(
+            createPlanRunInput(
+                editor,
+                runRequest.requestedMode,
+                runRequest.target,
+            ),
+        )
         if (!planned.ok) {
             throw new Error(planned.error.message)
         }
@@ -227,4 +227,28 @@ function resolveTargetPosition(
     }
 
     return editor.selection.active
+}
+
+function createPlanRunInput(
+    editor: vscode.TextEditor,
+    requestedMode: RunMode,
+    target?: unknown,
+): PlanRunInput {
+    const document = editor.document
+    const selection = editor.selection
+    const targetPosition = resolveTargetPosition(editor, target)
+
+    return {
+        documentPath: document.uri.fsPath,
+        documentText: document.getText(),
+        languageId: document.languageId,
+        requestedMode,
+        selectionActiveOffset: document.offsetAt(selection.active),
+        selectionEndLine: selection.end.line,
+        selectionEndOffset: document.offsetAt(selection.end),
+        selectionStartLine: selection.start.line,
+        selectionStartOffset: document.offsetAt(selection.start),
+        selectionsCount: editor.selections.length,
+        targetOffset: document.offsetAt(targetPosition),
+    }
 }

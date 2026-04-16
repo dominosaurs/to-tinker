@@ -1,21 +1,22 @@
-import * as vscode from 'vscode'
 import type { RunMode } from '../../commands'
 import {
     type FunctionInfo,
-    findFunctionAtPosition,
-    findFunctionMatchingSelection,
-    findFunctions,
-    findMethodAtPosition,
-    findMethodMatchingSelection,
-    findMethods,
+    findFunctionAtOffset,
+    findFunctionMatchingSelectionInText,
+    findFunctionsInText,
+    findMethodAtOffset,
+    findMethodMatchingSelectionInText,
+    findMethodsInText,
     type MethodInfo,
-    parseSelectedFunctionDeclaration,
+    parseSelectedFunctionDeclarationInText,
 } from '../discovery/callable-discovery'
 import {
-    extractFile,
-    extractPrefixToLine,
-    extractPrefixToSelectionEnd,
-    extractSelection,
+    extractFileFromText,
+    extractPrefixToLineFromText,
+    extractPrefixToOffsetFromText,
+    extractSelectionFromText,
+    lineEndOffset,
+    lineNumberAtOffset,
 } from '../slice/source-slice'
 import type { PlanningError } from '../types/planning-error'
 import type {
@@ -26,11 +27,17 @@ import type {
 } from '../types/run-plan'
 
 export interface PlanRunInput {
-    document: vscode.TextDocument
+    documentPath: string
+    documentText: string
+    languageId: string
     requestedMode: RunMode
-    selection: vscode.Selection
+    selectionActiveOffset: number
+    selectionEndLine: number
+    selectionEndOffset: number
     selectionsCount: number
-    targetPosition?: vscode.Position
+    selectionStartLine: number
+    selectionStartOffset: number
+    targetOffset?: number
 }
 
 export type PlanRunResult =
@@ -71,7 +78,12 @@ export function planRun(input: PlanRunInput): PlanRunResult {
 }
 
 function planSelectionRun(input: PlanRunInput): PlanRunResult {
-    const { document, selection, selectionsCount } = input
+    const {
+        documentText,
+        selectionEndOffset,
+        selectionStartOffset,
+        selectionsCount,
+    } = input
     if (selectionsCount !== 1) {
         return {
             error: {
@@ -82,18 +94,24 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         }
     }
 
-    const method = findMethodMatchingSelection(document, selection)
+    const method = findMethodMatchingSelectionInText(
+        documentText,
+        selectionStartOffset,
+        selectionEndOffset,
+    )
     if (method) {
-        return { ok: true, plan: createMethodPlan(document, method) }
+        return { ok: true, plan: createMethodPlan(input, method) }
     }
 
-    const matchedTopLevelFunction = findFunctionMatchingSelection(
-        document,
-        selection,
+    const matchedTopLevelFunction = findFunctionMatchingSelectionInText(
+        documentText,
+        selectionStartOffset,
+        selectionEndOffset,
     )
-    const matchedSelectedDeclaration = parseSelectedFunctionDeclaration(
-        document,
-        selection,
+    const matchedSelectedDeclaration = parseSelectedFunctionDeclarationInText(
+        documentText,
+        selectionStartOffset,
+        selectionEndOffset,
     )
     const callableFunction =
         matchedTopLevelFunction ?? matchedSelectedDeclaration
@@ -101,27 +119,35 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         return {
             ok: true,
             plan: createFunctionPlan(
-                document,
+                input,
                 callableFunction,
                 matchedTopLevelFunction
                     ? undefined
-                    : extractSelection(document, selection),
+                    : extractSelectionFromText(
+                          documentText,
+                          selectionStartOffset,
+                          selectionEndOffset,
+                      ),
             ),
         }
     }
 
     const enclosingCallable =
-        findEnclosingMethod(document, selection.end) ??
-        findEnclosingFunction(document, selection.end)
+        findEnclosingMethod(documentText, selectionEndOffset) ??
+        findEnclosingFunction(documentText, selectionEndOffset)
     if (enclosingCallable) {
         return {
             ok: true,
             plan: {
                 mode: 'selection',
                 smartCapture: true,
-                sourceCode: extractSelection(document, selection),
-                sourceLineEnd: selection.end.line + 1,
-                sourceLineStart: selection.start.line + 1,
+                sourceCode: extractSelectionFromText(
+                    documentText,
+                    selectionStartOffset,
+                    selectionEndOffset,
+                ),
+                sourceLineEnd: input.selectionEndLine + 1,
+                sourceLineStart: input.selectionStartLine + 1,
                 strategy: 'eval',
             },
         }
@@ -132,8 +158,11 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         plan: {
             mode: 'selection',
             smartCapture: true,
-            sourceCode: extractPrefixToSelectionEnd(document, selection),
-            sourceLineEnd: selection.end.line + 1,
+            sourceCode: extractPrefixToOffsetFromText(
+                documentText,
+                selectionEndOffset,
+            ),
+            sourceLineEnd: input.selectionEndLine + 1,
             sourceLineStart: 1,
             strategy: 'eval',
         },
@@ -144,30 +173,31 @@ function planFileRun(input: PlanRunInput): EvalRunPlan {
     return {
         mode: 'file',
         smartCapture: true,
-        sourceCode: extractFile(input.document),
-        sourceLineEnd: input.document.lineCount,
+        sourceCode: extractFileFromText(input.documentText),
+        sourceLineEnd:
+            lineNumberAtOffset(input.documentText, input.documentText.length) +
+            1,
         sourceLineStart: 1,
         strategy: 'eval',
     }
 }
 
 function planLineRun(input: PlanRunInput): EvalRunPlan {
-    const { document, selection } = input
-    const lineNumber = selection.active.line
+    const { documentText, selectionActiveOffset } = input
+    const lineNumber = lineNumberAtOffset(documentText, selectionActiveOffset)
     const enclosingCallable =
-        findEnclosingMethod(document, selection.active) ??
-        findEnclosingFunction(document, selection.active)
+        findEnclosingMethod(documentText, selectionActiveOffset) ??
+        findEnclosingFunction(documentText, selectionActiveOffset)
 
     if (enclosingCallable) {
-        const lineSelection = new vscode.Selection(
-            new vscode.Position(lineNumber, 0),
-            document.lineAt(lineNumber).range.end,
-        )
-
         return {
             mode: 'line',
             smartCapture: true,
-            sourceCode: extractSelection(document, lineSelection),
+            sourceCode: extractSelectionFromText(
+                documentText,
+                lineStartOffset(documentText, lineNumber),
+                lineEndOffset(documentText, lineNumber),
+            ),
             sourceLineEnd: lineNumber + 1,
             sourceLineStart: lineNumber + 1,
             strategy: 'eval',
@@ -177,7 +207,7 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
     return {
         mode: 'line',
         smartCapture: true,
-        sourceCode: extractPrefixToLine(document, selection.active),
+        sourceCode: extractPrefixToLineFromText(documentText, lineNumber),
         sourceLineEnd: lineNumber + 1,
         sourceLineStart: 1,
         strategy: 'eval',
@@ -185,39 +215,40 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
 }
 
 function planMethodRun(input: PlanRunInput): MethodRunPlan {
-    const method = findMethodAtPosition(
-        input.document,
-        input.targetPosition ?? input.selection.active,
+    const method = findMethodAtOffset(
+        input.documentText,
+        input.targetOffset ?? input.selectionActiveOffset,
     )
 
-    return createMethodPlan(input.document, method)
+    return createMethodPlan(input, method)
 }
 
 function planFunctionRun(input: PlanRunInput): FunctionRunPlan {
-    const callableFunction = findFunctionAtPosition(
-        input.document,
-        input.targetPosition ?? input.selection.active,
+    const callableFunction = findFunctionAtOffset(
+        input.documentText,
+        input.targetOffset ?? input.selectionActiveOffset,
     )
 
-    return createFunctionPlan(input.document, callableFunction)
+    return createFunctionPlan(input, callableFunction)
 }
 
 function createMethodPlan(
-    document: vscode.TextDocument,
+    input: PlanRunInput,
     method: MethodInfo,
 ): MethodRunPlan {
     return {
         method,
         mode: 'method',
-        sourceCode: document.getText().slice(method.start, method.end + 1),
-        sourceLineEnd: document.positionAt(method.end).line + 1,
-        sourceLineStart: document.positionAt(method.start).line + 1,
+        sourceCode: input.documentText.slice(method.start, method.end + 1),
+        sourceLineEnd: lineNumberAtOffset(input.documentText, method.end) + 1,
+        sourceLineStart:
+            lineNumberAtOffset(input.documentText, method.start) + 1,
         strategy: 'method',
     }
 }
 
 function createFunctionPlan(
-    document: vscode.TextDocument,
+    input: PlanRunInput,
     callableFunction: FunctionInfo,
     functionDeclarationSource?: string,
 ): FunctionRunPlan {
@@ -225,39 +256,50 @@ function createFunctionPlan(
         callableFunction,
         functionDeclarationSource,
         mode: 'function',
-        sourceCode: document
-            .getText()
-            .slice(callableFunction.start, callableFunction.end + 1),
-        sourceLineEnd: document.positionAt(callableFunction.end).line + 1,
-        sourceLineStart: document.positionAt(callableFunction.start).line + 1,
+        sourceCode: input.documentText.slice(
+            callableFunction.start,
+            callableFunction.end + 1,
+        ),
+        sourceLineEnd:
+            lineNumberAtOffset(input.documentText, callableFunction.end) + 1,
+        sourceLineStart:
+            lineNumberAtOffset(input.documentText, callableFunction.start) + 1,
         strategy: 'function',
     }
 }
 
 function findEnclosingMethod(
-    document: vscode.TextDocument,
-    position: vscode.Position,
+    text: string,
+    offset: number,
 ): MethodInfo | undefined {
-    const cursorOffset = document.offsetAt(position)
-    return findMethods(document)
-        .filter(
-            method =>
-                cursorOffset >= method.start && cursorOffset <= method.end,
-        )
+    return findMethodsInText(text)
+        .filter(method => offset >= method.start && offset <= method.end)
         .sort((left, right) => left.start - right.start)
         .at(-1)
 }
 
 function findEnclosingFunction(
-    document: vscode.TextDocument,
-    position: vscode.Position,
+    text: string,
+    offset: number,
 ): FunctionInfo | undefined {
-    const cursorOffset = document.offsetAt(position)
-    return findFunctions(document)
-        .filter(
-            callable =>
-                cursorOffset >= callable.start && cursorOffset <= callable.end,
-        )
+    return findFunctionsInText(text)
+        .filter(callable => offset >= callable.start && offset <= callable.end)
         .sort((left, right) => left.start - right.start)
         .at(-1)
+}
+
+function lineStartOffset(text: string, lineNumber: number): number {
+    let currentLine = 0
+
+    for (let index = 0; index < text.length; index += 1) {
+        if (currentLine === lineNumber) {
+            return index
+        }
+
+        if (text[index] === '\n') {
+            currentLine += 1
+        }
+    }
+
+    return currentLine === lineNumber ? text.length : 0
 }

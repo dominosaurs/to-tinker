@@ -17,13 +17,17 @@ describe('planRun', () => {
         const functionEnd = source.lastIndexOf('}') + 1
 
         const result = planRun({
-            document,
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
             requestedMode: 'selection',
-            selection: new vscode.Selection(
-                document.positionAt(functionStart),
-                document.positionAt(functionEnd),
-            ),
+            selectionActiveOffset: functionEnd,
+            selectionEndLine: document.positionAt(functionEnd).line,
+            selectionEndOffset: functionEnd,
+            selectionStartLine: document.positionAt(functionStart).line,
+            selectionStartOffset: functionStart,
             selectionsCount: 1,
+            targetOffset: functionEnd,
         })
 
         expect(result).toEqual({
@@ -54,9 +58,15 @@ describe('planRun', () => {
         )
 
         const result = planRun({
-            document,
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
             requestedMode: 'selection',
-            selection: new vscode.Selection(start, end),
+            selectionActiveOffset: document.offsetAt(end),
+            selectionEndLine: end.line,
+            selectionEndOffset: document.offsetAt(end),
+            selectionStartLine: start.line,
+            selectionStartOffset: document.offsetAt(start),
             selectionsCount: 1,
         })
 
@@ -75,14 +85,18 @@ describe('planRun', () => {
     it('uses prefix eval for top-level line runs', () => {
         const source = ['<?php', '$value = 1;', '$value;', ''].join('\n')
         const document = createTextDocument(source)
+        const active = new vscode.Position(2, 6)
 
         const result = planRun({
-            document,
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
             requestedMode: 'line',
-            selection: new vscode.Selection(
-                new vscode.Position(2, 0),
-                new vscode.Position(2, 6),
-            ),
+            selectionActiveOffset: document.offsetAt(active),
+            selectionEndLine: active.line,
+            selectionEndOffset: document.offsetAt(active),
+            selectionStartLine: 2,
+            selectionStartOffset: document.offsetAt(new vscode.Position(2, 0)),
             selectionsCount: 1,
         })
 
@@ -100,14 +114,19 @@ describe('planRun', () => {
 
     it('returns a typed planning error for multiple selections', () => {
         const document = createTextDocument('<?php\n$value = 1;\n')
+        const start = new vscode.Position(1, 0)
+        const end = new vscode.Position(1, 10)
 
         const result = planRun({
-            document,
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
             requestedMode: 'selection',
-            selection: new vscode.Selection(
-                new vscode.Position(1, 0),
-                new vscode.Position(1, 10),
-            ),
+            selectionActiveOffset: document.offsetAt(end),
+            selectionEndLine: end.line,
+            selectionEndOffset: document.offsetAt(end),
+            selectionStartLine: start.line,
+            selectionStartOffset: document.offsetAt(start),
             selectionsCount: 2,
         })
 
