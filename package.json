@@ -127,7 +127,7 @@
     "files": [
         "assets/images/icon256.png",
         "assets/images/icon32.png",
-        "out/**",
+        "dist/**",
         "LICENSE",
         "package.json",
         "README.md"
@@ -149,7 +149,7 @@
         "debugging"
     ],
     "license": "MIT",
-    "main": "./out/extension.js",
+    "main": "./dist/extension.js",
     "name": "to-tinker",
     "preview": true,
     "publisher": "dominosaurs",

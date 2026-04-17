@@ -1,5 +1,17 @@
 import * as vscode from 'vscode'
-import { type AppInfo, type RunReport, renderResultView } from './result-view'
+import type { AppInfo, RunReport } from './result-view'
+
+let renderResultViewModulePromise:
+    | Promise<typeof import('./result-view')>
+    | undefined
+
+function loadResultViewModule(): Promise<typeof import('./result-view')> {
+    if (!renderResultViewModulePromise) {
+        renderResultViewModulePromise = import('./result-view')
+    }
+
+    return renderResultViewModulePromise
+}
 
 export class Output {
     private appInfo: AppInfo = {
@@ -27,6 +39,7 @@ export class Output {
 
     async show(report: RunReport): Promise<void> {
         const panel = this.getOrCreatePanel()
+        const { renderResultView } = await loadResultViewModule()
         panel.webview.html = await renderResultView(report, this.appInfo)
         panel.reveal(vscode.ViewColumn.Beside, true)
     }

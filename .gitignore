@@ -3,7 +3,7 @@
 .codex
 dev
 node_modules
-out
+dist
 *.vsix
 
 # mempalace
