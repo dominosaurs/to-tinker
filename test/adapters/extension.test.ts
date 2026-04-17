@@ -1405,4 +1405,49 @@ function build_report(string $label) {
             'To Tinker sandbox disabled.',
         )
     })
+
+    it('updates run file context for class-only php files on activation', async () => {
+        setActiveEditor(
+            createCursorEditor(
+                createTextDocument(`<?php
+class UserController
+{
+    public function index()
+    {
+        return [];
+    }
+}
+`),
+                new vscode.Position(1, 0),
+            ),
+        )
+
+        await activateExtension()
+
+        expect(commands.executeCommand).toHaveBeenCalledWith(
+            'setContext',
+            'toTinker.showRunFile',
+            false,
+        )
+    })
+
+    it('updates run file context for top-level executable php files on activation', async () => {
+        setActiveEditor(
+            createCursorEditor(
+                createTextDocument(`<?php
+$value = 1;
+return $value;
+`),
+                new vscode.Position(1, 0),
+            ),
+        )
+
+        await activateExtension()
+
+        expect(commands.executeCommand).toHaveBeenCalledWith(
+            'setContext',
+            'toTinker.showRunFile',
+            true,
+        )
+    })
 })

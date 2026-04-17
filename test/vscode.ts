@@ -73,6 +73,7 @@ export const window = {
         reveal: vi.fn(),
         webview: { html: '' },
     })),
+    onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: vi.fn() })),
     showErrorMessage: vi.fn(),
     showInformationMessage: vi.fn(),
     showInputBox: vi.fn(),

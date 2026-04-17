@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { ToTinkerCodeLensProvider } from './code-lens'
 import { COMMANDS, type RunMode } from './commands'
 import { getConfig, setSandboxDefaultEnabled } from './config'
+import { shouldShowRunFileForText } from './core/discovery/top-level-file-shape'
 import { type PlanRunInput, planRun } from './core/plan/plan-run'
 import { prepareExecution } from './core/prepare/prepare-execution'
 import { Log } from './log'
@@ -14,6 +15,7 @@ const output = new Output()
 const log = new Log()
 const registry = new RunRegistry()
 const codeLensProvider = new ToTinkerCodeLensProvider()
+const RUN_FILE_CONTEXT = 'toTinker.showRunFile'
 
 interface RunRequest {
     requestedMode: RunMode
@@ -24,7 +26,20 @@ export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
     codeLensProvider.register(context)
 
+    void updateRunFileContext(vscode.window.activeTextEditor)
+
     context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            void updateRunFileContext(editor)
+        }),
+        vscode.workspace.onDidChangeTextDocument(event => {
+            if (
+                vscode.window.activeTextEditor &&
+                event.document === vscode.window.activeTextEditor.document
+            ) {
+                void updateRunFileContext(vscode.window.activeTextEditor)
+            }
+        }),
         vscode.commands.registerCommand(COMMANDS.runDefault, async () => {
             await runDefaultRequest()
         }),
@@ -315,4 +330,19 @@ function isStructuralCloserLine(text: string): boolean {
 
 function isCommentOnlyLine(text: string): boolean {
     return /^(?:\/\/|#|\/\*)/u.test(text)
+}
+
+async function updateRunFileContext(
+    editor: vscode.TextEditor | undefined,
+): Promise<void> {
+    const visible =
+        editor?.document.languageId === 'php'
+            ? shouldShowRunFileForText(editor.document.getText())
+            : false
+
+    await vscode.commands.executeCommand(
+        'setContext',
+        RUN_FILE_CONTEXT,
+        visible,
+    )
 }

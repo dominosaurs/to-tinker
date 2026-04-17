@@ -98,7 +98,7 @@
                 {
                     "command": "toTinker.runFile",
                     "group": "navigation@1",
-                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
+                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor && toTinker.showRunFile"
                 }
             ]
         }
