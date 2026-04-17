@@ -42,7 +42,7 @@ describe('planRun', () => {
         })
     })
 
-    it('uses snippet-only eval for a selection inside a function body', () => {
+    it('uses callable-scoped eval for a selection inside a function body', () => {
         const source = [
             '<?php',
             'function build_report() {',
@@ -77,6 +77,90 @@ describe('planRun', () => {
                 sourceCode: '$value = 1;\n    $value;',
                 sourceLineEnd: 4,
                 sourceLineStart: 3,
+                strategy: 'eval',
+            }),
+        })
+    })
+
+    it('preserves prior callable statements for selected expressions that depend on local variables', () => {
+        const source = [
+            '<?php',
+            'function build_report() {',
+            '    $user = User::query()->find(1);',
+            '    $user->name = fake()->name();',
+            '    return [',
+            "        'user_email' => $user->email,",
+            '    ];',
+            '}',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const start = source.indexOf('$user->email')
+        const end = start + '$user->email'.length
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: end,
+            selectionEndLine: document.positionAt(end).line,
+            selectionEndOffset: end,
+            selectionStartLine: document.positionAt(start).line,
+            selectionStartOffset: start,
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                mode: 'selection',
+                sourceCode: [
+                    '$user = User::query()->find(1);',
+                    '$user->name = fake()->name();',
+                    '$user->email',
+                ].join('\n'),
+                strategy: 'eval',
+            }),
+        })
+    })
+
+    it('reduces selected array entries to their value expression inside callables', () => {
+        const source = [
+            '<?php',
+            'function build_report() {',
+            '    $user = User::query()->find(1);',
+            '    return [',
+            "        'user_name' => $user->name,",
+            '    ];',
+            '}',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const start = source.indexOf("'user_name'")
+        const end = source.indexOf(',', start)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: end,
+            selectionEndLine: document.positionAt(end).line,
+            selectionEndOffset: end,
+            selectionStartLine: document.positionAt(start).line,
+            selectionStartOffset: start,
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                mode: 'selection',
+                sourceCode: [
+                    '$user = User::query()->find(1);',
+                    '$user->name',
+                ].join('\n'),
                 strategy: 'eval',
             }),
         })

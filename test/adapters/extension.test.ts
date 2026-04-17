@@ -508,7 +508,7 @@ $__toTinkerResult = (Inspiring::quote());`,
         )
     })
 
-    it('runs line inside a method as snippet-only smart capture', async () => {
+    it('runs line inside a method with prior callable context', async () => {
         const document = createTextDocument(`<?php
 class ReportRunner {
     public function build() {
@@ -538,7 +538,7 @@ class ReportRunner {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                preparedUserCode: '$__toTinkerResult = ($bar = 2);',
+                preparedUserCode: '$foo = 1;\n$__toTinkerResult = ($bar = 2);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -553,7 +553,7 @@ class ReportRunner {
         )
     })
 
-    it('runs selection inside a method as snippet-only smart capture', async () => {
+    it('runs selection inside a method with prior callable context', async () => {
         const document = createTextDocument(`<?php
 class ReportRunner {
     public function build() {
@@ -602,7 +602,7 @@ class ReportRunner {
         )
     })
 
-    it('runs line inside a plain function as snippet-only smart capture', async () => {
+    it('runs line inside a plain function with prior callable context', async () => {
         const document = createTextDocument(`<?php
 function build() {
     $foo = 1;
@@ -630,7 +630,7 @@ function build() {
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
-                preparedUserCode: '$__toTinkerResult = ($bar = 2);',
+                preparedUserCode: '$foo = 1;\n$__toTinkerResult = ($bar = 2);',
             }),
         )
         expect(executeTinker).toHaveBeenCalledWith(
@@ -645,7 +645,7 @@ function build() {
         )
     })
 
-    it('runs selection inside a plain function as snippet-only smart capture', async () => {
+    it('runs selection inside a plain function with prior callable context', async () => {
         const document = createTextDocument(`<?php
 function build() {
     $foo = 1;
@@ -689,6 +689,93 @@ function build() {
             expect.anything(),
             expect.anything(),
             expect.anything(),
+        )
+    })
+
+    it('runs array-entry lines inside a method as value expressions with prior context', async () => {
+        const document = createTextDocument(`<?php
+class ReportRunner {
+    public function build() {
+        $user = User::query()->find(1);
+        return [
+            'user_name' => $user->name,
+        ];
+    }
+}`)
+        const cursor = new vscode.Selection(
+            new vscode.Position(4, 33),
+            new vscode.Position(4, 33),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                preparedUserCode:
+                    '$user = User::query()->find(1);\n$__toTinkerResult = ($user->name);',
+            }),
+        )
+    })
+
+    it('runs selected expressions inside a method with prior local context', async () => {
+        const source = `<?php
+class ReportRunner {
+    public function build() {
+        $user = User::query()->find(1);
+        $user->name = fake()->name();
+        return [
+            'user_email' => $user->email,
+        ];
+    }
+}`
+        const document = createTextDocument(source)
+        const start = source.indexOf('$user->email')
+        const end = start + '$user->email'.length
+        const editor = {
+            document,
+            selection: new vscode.Selection(
+                document.positionAt(start),
+                document.positionAt(end),
+            ),
+            selections: [
+                new vscode.Selection(
+                    document.positionAt(start),
+                    document.positionAt(end),
+                ),
+            ],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                preparedUserCode: [
+                    '$user = User::query()->find(1);',
+                    '$user->name = fake()->name();',
+                    '$__toTinkerResult = ($user->email);',
+                ].join('\n'),
+            }),
         )
     })
 

@@ -151,16 +151,24 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         findEnclosingMethod(documentText, selectionEndOffset) ??
         findEnclosingFunction(documentText, selectionEndOffset)
     if (enclosingCallable) {
+        const sourceCode = buildCallableScopedEvalSource(
+            documentText,
+            enclosingCallable.start,
+            enclosingCallable.end,
+            selectionStartOffset,
+            extractSelectionFromText(
+                documentText,
+                selectionStartOffset,
+                selectionEndOffset,
+            ),
+        )
+
         return {
             ok: true,
             plan: {
                 mode: 'selection',
                 smartCapture: true,
-                sourceCode: extractSelectionFromText(
-                    documentText,
-                    selectionStartOffset,
-                    selectionEndOffset,
-                ),
+                sourceCode,
                 sourceLineEnd: input.selectionEndLine + 1,
                 sourceLineStart: input.selectionStartLine + 1,
                 strategy: 'eval',
@@ -208,13 +216,18 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
         findEnclosingFunction(documentText, selectionActiveOffset)
 
     if (enclosingCallable) {
+        const lineStart = lineStartOffset(documentText, lineNumber)
+        const lineEnd = lineEndOffset(documentText, lineNumber)
+
         return {
             mode: 'line',
             smartCapture: true,
-            sourceCode: extractSelectionFromText(
+            sourceCode: buildCallableScopedEvalSource(
                 documentText,
-                lineStartOffset(documentText, lineNumber),
-                lineEndOffset(documentText, lineNumber),
+                enclosingCallable.start,
+                enclosingCallable.end,
+                lineStart,
+                extractSelectionFromText(documentText, lineStart, lineEnd),
             ),
             sourceLineEnd: lineNumber + 1,
             sourceLineStart: lineNumber + 1,
@@ -363,4 +376,266 @@ function lineStartOffset(text: string, lineNumber: number): number {
     }
 
     return currentLine === lineNumber ? text.length : 0
+}
+
+function buildCallableScopedEvalSource(
+    text: string,
+    callableStart: number,
+    callableEnd: number,
+    targetStartOffset: number,
+    targetSource: string,
+): string {
+    const bodyStart = findCallableBodyStart(text, callableStart, callableEnd)
+    const leadingStatements = extractCompleteTopLevelStatements(
+        text.slice(bodyStart, targetStartOffset),
+    )
+    const normalizedTarget = normalizeCallableTargetSource(targetSource)
+
+    return leadingStatements.length > 0
+        ? [...leadingStatements, normalizedTarget].join('\n')
+        : normalizedTarget
+}
+
+function findCallableBodyStart(
+    text: string,
+    callableStart: number,
+    callableEnd: number,
+): number {
+    const bodyBrace = text.indexOf('{', callableStart)
+    return bodyBrace === -1 || bodyBrace > callableEnd
+        ? callableStart
+        : bodyBrace + 1
+}
+
+function normalizeCallableTargetSource(source: string): string {
+    try {
+        prepareEvalSource(source, true)
+        return source
+    } catch (error) {
+        if (
+            error instanceof Error &&
+            error.message === INCOMPLETE_SNIPPET_ERROR
+        ) {
+            const valueExpression = extractTopLevelValueExpression(source)
+            if (valueExpression) {
+                prepareEvalSource(valueExpression, true)
+                return valueExpression
+            }
+        }
+
+        throw error
+    }
+}
+
+function extractCompleteTopLevelStatements(source: string): string[] {
+    const statements: string[] = []
+    let current = ''
+    let parenDepth = 0
+    let bracketDepth = 0
+    let braceDepth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    let inLineComment = false
+    let inBlockComment = false
+
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const next = source[index + 1]
+        const previous = source[index - 1]
+
+        current += character
+
+        if (inLineComment) {
+            if (character === '\n') {
+                inLineComment = false
+            }
+            continue
+        }
+
+        if (inBlockComment) {
+            if (previous === '*' && character === '/') {
+                inBlockComment = false
+            }
+            continue
+        }
+
+        if (!inSingleQuote && !inDoubleQuote) {
+            if (character === '/' && next === '/') {
+                inLineComment = true
+                continue
+            }
+
+            if (character === '/' && next === '*') {
+                inBlockComment = true
+                continue
+            }
+        }
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '(') {
+            parenDepth += 1
+            continue
+        }
+
+        if (character === ')') {
+            parenDepth = Math.max(0, parenDepth - 1)
+            continue
+        }
+
+        if (character === '[') {
+            bracketDepth += 1
+            continue
+        }
+
+        if (character === ']') {
+            bracketDepth = Math.max(0, bracketDepth - 1)
+            continue
+        }
+
+        if (character === '{') {
+            braceDepth += 1
+            continue
+        }
+
+        if (character === '}') {
+            braceDepth = Math.max(0, braceDepth - 1)
+            continue
+        }
+
+        if (
+            character === ';' &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            braceDepth === 0
+        ) {
+            const statement = current.trim()
+            if (statement) {
+                statements.push(statement)
+            }
+            current = ''
+        }
+    }
+
+    return statements
+}
+
+function extractTopLevelValueExpression(source: string): string | undefined {
+    let parenDepth = 0
+    let bracketDepth = 0
+    let braceDepth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    let inLineComment = false
+    let inBlockComment = false
+    let arrowIndex = -1
+
+    for (let index = 0; index < source.length; index += 1) {
+        const character = source[index]
+        const next = source[index + 1]
+        const previous = source[index - 1]
+
+        if (inLineComment) {
+            if (character === '\n') {
+                inLineComment = false
+            }
+            continue
+        }
+
+        if (inBlockComment) {
+            if (previous === '*' && character === '/') {
+                inBlockComment = false
+            }
+            continue
+        }
+
+        if (!inSingleQuote && !inDoubleQuote) {
+            if (character === '/' && next === '/') {
+                inLineComment = true
+                continue
+            }
+
+            if (character === '/' && next === '*') {
+                inBlockComment = true
+                continue
+            }
+        }
+
+        if (character === "'" && !inDoubleQuote && previous !== '\\') {
+            inSingleQuote = !inSingleQuote
+            continue
+        }
+
+        if (character === '"' && !inSingleQuote && previous !== '\\') {
+            inDoubleQuote = !inDoubleQuote
+            continue
+        }
+
+        if (inSingleQuote || inDoubleQuote) {
+            continue
+        }
+
+        if (character === '(') {
+            parenDepth += 1
+            continue
+        }
+
+        if (character === ')') {
+            parenDepth = Math.max(0, parenDepth - 1)
+            continue
+        }
+
+        if (character === '[') {
+            bracketDepth += 1
+            continue
+        }
+
+        if (character === ']') {
+            bracketDepth = Math.max(0, bracketDepth - 1)
+            continue
+        }
+
+        if (character === '{') {
+            braceDepth += 1
+            continue
+        }
+
+        if (character === '}') {
+            braceDepth = Math.max(0, braceDepth - 1)
+            continue
+        }
+
+        if (
+            character === '=' &&
+            next === '>' &&
+            parenDepth === 0 &&
+            bracketDepth === 0 &&
+            braceDepth === 0
+        ) {
+            arrowIndex = index
+        }
+    }
+
+    if (arrowIndex === -1) {
+        return undefined
+    }
+
+    return source
+        .slice(arrowIndex + 2)
+        .replace(/\/\/[^\n]*$/u, '')
+        .replace(/,\s*$/u, '')
+        .replace(/;\s*$/u, '')
+        .trim()
 }
