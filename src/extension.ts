@@ -144,8 +144,33 @@ async function runRequest(runRequest: RunRequest): Promise<void> {
         await renderExecutionReport(executionRequest, result, output)
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
+        const editor = resolveEditor(runRequest.target)
+
+        if (
+            editor &&
+            runRequest.requestedMode !== 'file' &&
+            shouldFallbackEmptySelectionToFile(message, editor)
+        ) {
+            await runRequestInternalFile(editor, runRequest.target)
+            return
+        }
+
         void vscode.window.showErrorMessage(message)
     }
+}
+
+async function runRequestInternalFile(
+    editor: vscode.TextEditor,
+    target?: unknown,
+): Promise<void> {
+    if (!shouldUseDefaultMode(editor) || !shouldRunFileByDefault(editor)) {
+        return
+    }
+
+    await runRequest({
+        requestedMode: 'file',
+        target,
+    })
 }
 
 async function runDefaultRequest(): Promise<void> {
@@ -163,7 +188,9 @@ async function runDefaultRequest(): Promise<void> {
     }
 
     await runRequest({
-        requestedMode: editor.selection.isEmpty ? 'line' : 'selection',
+        requestedMode: shouldUseDefaultMode(editor)
+            ? resolveDefaultRunMode(editor)
+            : 'selection',
     })
 }
 
@@ -237,4 +264,55 @@ function createPlanRunInput(
         selectionsCount: editor.selections.length,
         targetOffset: document.offsetAt(targetPosition),
     }
+}
+
+function resolveDefaultRunMode(editor: vscode.TextEditor): RunMode {
+    return shouldRunFileByDefault(editor) ? 'file' : 'line'
+}
+
+function shouldUseDefaultMode(editor: vscode.TextEditor): boolean {
+    return (
+        editor.selection.isEmpty ||
+        !editor.document.getText(editor.selection).trim()
+    )
+}
+
+function shouldFallbackEmptySelectionToFile(
+    message: string,
+    editor: vscode.TextEditor,
+): boolean {
+    return (
+        message === 'Selection is empty. Select PHP code first.' &&
+        shouldUseDefaultMode(editor) &&
+        shouldRunFileByDefault(editor)
+    )
+}
+
+function shouldRunFileByDefault(editor: vscode.TextEditor): boolean {
+    const lineNumber = editor.selection.active.line
+    const lastRunnableLine = findLastRunnableLine(editor.document)
+    if (lineNumber < lastRunnableLine) {
+        return false
+    }
+
+    return isStructuralCloserLine(editor.document.lineAt(lastRunnableLine).text)
+}
+
+function findLastRunnableLine(document: vscode.TextDocument): number {
+    for (let line = document.lineCount - 1; line >= 0; line -= 1) {
+        const text = document.lineAt(line).text.trim()
+        if (text && !isCommentOnlyLine(text)) {
+            return line
+        }
+    }
+
+    return 0
+}
+
+function isStructuralCloserLine(text: string): boolean {
+    return /^(?:\]|\)|\}|\];|\);|\};)\s*[,]?\s*$/u.test(text.trim())
+}
+
+function isCommentOnlyLine(text: string): boolean {
+    return /^(?:\/\/|#|\/\*)/u.test(text)
 }

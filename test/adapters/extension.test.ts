@@ -424,6 +424,227 @@ $__toTinkerResult = (Inspiring::quote());`,
         )
     })
 
+    it('defaults to file mode on the final structural closer line', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+
+$quote = Inspiring::quote();
+
+return [
+    'original' => $quote,
+];
+`
+        const document = createTextDocument(source)
+        const closingOffset = source.indexOf('];')
+        const closingPosition = document.positionAt(closingOffset + 1)
+        const cursor = new vscode.Selection(closingPosition, closingPosition)
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'file',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('defaults to file mode when cursor is on trailing blank line after final closer', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+
+$quote = Inspiring::quote();
+
+return [
+    'original' => $quote,
+];
+
+`
+        const document = createTextDocument(source)
+        const trailingPosition = document.positionAt(source.length)
+        const cursor = new vscode.Selection(trailingPosition, trailingPosition)
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'file',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('treats whitespace-only trailing selection as default file run', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+
+$quote = Inspiring::quote();
+
+return [
+    'original' => $quote,
+];
+
+`
+        const document = createTextDocument(source)
+        const start = source.lastIndexOf('\n')
+        const selection = new vscode.Selection(
+            document.positionAt(start),
+            document.positionAt(source.length),
+        )
+        const editor = {
+            document,
+            selection,
+            selections: [selection],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'file',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('defaults to file mode on trailing comment lines after final closer', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+
+$quote = Inspiring::quote();
+
+return [
+    'original' => $quote,
+];
+
+// trailing note
+`
+        const document = createTextDocument(source)
+        const commentOffset = source.indexOf('// trailing note')
+        const commentPosition = document.positionAt(commentOffset + 3)
+        const cursor = new vscode.Selection(commentPosition, commentPosition)
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(executeTinker).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: 'file',
+            }),
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        )
+    })
+
+    it('keeps top-level function declarations in line runs that call them later', async () => {
+        const source = `<?php
+use Illuminate\\Support\\Str;
+
+function formatString(string $string, string $mode): string {
+    return match ($mode) {
+        'slug' => Str::slug($string),
+        'title' => Str::title($string),
+        default => throw new Exception('Invalid mode'),
+    };
+}
+
+$quote = 'Hello world';
+$formatted = [
+    'title' => formatString($quote, 'title'),
+];
+`
+        const document = createTextDocument(source)
+        const targetOffset = source.indexOf(
+            "'title' => formatString($quote, 'title')",
+        )
+        const targetPosition = document.positionAt(targetOffset + 1)
+        const editor = {
+            document,
+            selection: new vscode.Selection(targetPosition, targetPosition),
+            selections: [new vscode.Selection(targetPosition, targetPosition)],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                preparedUserCode: [
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string {',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => throw new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    "$quote = 'Hello world';",
+                    "$__toTinkerResult = (formatString($quote, 'title'));",
+                ].join('\n'),
+            }),
+        )
+    })
+
     it('runs the current line through the execution pipeline', async () => {
         const document = createTextDocument('<?php\n$foo = 1;\n$bar = 2;\n')
         const cursor = new vscode.Selection(
@@ -505,6 +726,259 @@ $__toTinkerResult = (Inspiring::quote());`,
             expect.anything(),
             expect.anything(),
             expect.anything(),
+        )
+    })
+
+    it('runs top-level array-entry lines as value expressions with prior context', async () => {
+        const document = createTextDocument(`<?php
+use Illuminate\\Foundation\\Inspiring;
+
+$quote = Inspiring::quote();
+
+return [
+    'original' => $quote,
+];
+`)
+        const cursor = new vscode.Selection(
+            new vscode.Position(5, 23),
+            new vscode.Position(5, 23),
+        )
+        const editor = {
+            document,
+            selection: cursor,
+            selections: [cursor],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                preparedUserCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    '$quote = Inspiring::quote();',
+                    '$__toTinkerResult = ($quote);',
+                ].join('\n'),
+            }),
+        )
+    })
+
+    it('runs each top-level array entry line with prior context', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+use Illuminate\\Support\\Str;
+
+$quote = Inspiring::quote();
+
+return [
+    'original' => $quote,
+    'slug'     => Str::slug($quote),
+    'title'    => Str::title($quote),
+    'uuid'     => Str::uuid()->toString(),
+];
+`
+        const document = createTextDocument(source)
+        const entryCases = [
+            {
+                expected: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    '$quote = Inspiring::quote();',
+                    '$__toTinkerResult = ($quote);',
+                ].join('\n'),
+                target: "'original' => $quote",
+            },
+            {
+                expected: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    '$quote = Inspiring::quote();',
+                    '$quote;',
+                    '$__toTinkerResult = (Str::slug($quote));',
+                ].join('\n'),
+                target: "'slug'     => Str::slug($quote)",
+            },
+            {
+                expected: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    '$quote = Inspiring::quote();',
+                    '$quote;',
+                    'Str::slug($quote);',
+                    '$__toTinkerResult = (Str::title($quote));',
+                ].join('\n'),
+                target: "'title'    => Str::title($quote)",
+            },
+            {
+                expected: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    '$quote = Inspiring::quote();',
+                    '$quote;',
+                    'Str::slug($quote);',
+                    'Str::title($quote);',
+                    '$__toTinkerResult = (Str::uuid()->toString());',
+                ].join('\n'),
+                target: "'uuid'     => Str::uuid()->toString()",
+            },
+        ]
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+
+        for (const entryCase of entryCases) {
+            buildTinkerPayload.mockClear()
+            const targetOffset = source.indexOf(entryCase.target)
+            const targetPosition = document.positionAt(targetOffset + 1)
+
+            const cursor = new vscode.Selection(targetPosition, targetPosition)
+            const editor = {
+                document,
+                selection: cursor,
+                selections: [cursor],
+            }
+            window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+            await callback()
+
+            expect(buildTinkerPayload).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    preparedUserCode: entryCase.expected,
+                }),
+            )
+        }
+    })
+
+    it('runs array-entry assignment lines by returning assigned value', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+use Illuminate\\Support\\Str;
+
+function formatString(string $string, string $mode): string
+{
+    return match ($mode) {
+        'slug' => Str::slug($string),
+        'title' => Str::title($string),
+        default => throw new Exception('Invalid mode'),
+    };
+}
+
+$formattedQuote = [
+    'original' => $quote = Inspiring::quotes()->random(),
+    'slug' => formatString($quote, 'slug'),
+    'title' => formatString($quote, 'title'),
+];
+`
+        const document = createTextDocument(source)
+        const targetOffset = source.indexOf(
+            "'original' => $quote = Inspiring::quotes()->random()",
+        )
+        const targetPosition = document.positionAt(targetOffset + 1)
+        const editor = {
+            document,
+            selection: new vscode.Selection(targetPosition, targetPosition),
+            selections: [new vscode.Selection(targetPosition, targetPosition)],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                preparedUserCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string',
+                    '{',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => throw new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    '$__toTinkerResult = ($quote = Inspiring::quotes()->random());',
+                ].join('\n'),
+            }),
+        )
+    })
+
+    it('keeps top-level function declarations in top-level array-entry line runs', async () => {
+        const source = `<?php
+use Illuminate\\Foundation\\Inspiring;
+use Illuminate\\Support\\Str;
+
+function formatString(string $string, string $mode): string
+{
+    return match ($mode) {
+        'slug' => Str::slug($string),
+        'title' => Str::title($string),
+        default => throw new Exception('Invalid mode'),
+    };
+}
+
+$formattedQuote = [
+    'original' => $quote = Inspiring::quotes()->random(),
+    'slug' => formatString($quote, 'slug'),
+    'title' => formatString($quote, 'title'),
+];
+`
+        const document = createTextDocument(source)
+        const targetOffset = source.indexOf(
+            "'slug' => formatString($quote, 'slug')",
+        )
+        const targetPosition = document.positionAt(targetOffset + 1)
+        const editor = {
+            document,
+            selection: new vscode.Selection(targetPosition, targetPosition),
+            selections: [new vscode.Selection(targetPosition, targetPosition)],
+        }
+        window.activeTextEditor = editor as unknown as vscode.TextEditor
+
+        const { activate } = await import('../../src/extension')
+        const context = {
+            subscriptions: [],
+        } as unknown as vscode.ExtensionContext
+        activate(context)
+
+        const callback = getRegisteredCommand('toTinker.runDefault')
+        await callback()
+
+        expect(buildTinkerPayload).toHaveBeenCalledWith(
+            expect.objectContaining({
+                preparedUserCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string',
+                    '{',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => throw new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    '$quote = Inspiring::quotes()->random();',
+                    "$__toTinkerResult = (formatString($quote, 'slug'));",
+                ].join('\n'),
+            }),
         )
     })
 

@@ -196,6 +196,211 @@ describe('planRun', () => {
         })
     })
 
+    it('reduces top-level array-entry lines to their value expression', () => {
+        const source = [
+            '<?php',
+            'use Illuminate\\Foundation\\Inspiring;',
+            '',
+            '$quote = Inspiring::quote();',
+            '',
+            'return [',
+            "    'original' => $quote,",
+            '];',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const active = new vscode.Position(6, 24)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'line',
+            selectionActiveOffset: document.offsetAt(active),
+            selectionEndLine: active.line,
+            selectionEndOffset: document.offsetAt(active),
+            selectionStartLine: active.line,
+            selectionStartOffset: document.offsetAt(new vscode.Position(6, 0)),
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                mode: 'line',
+                sourceCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    '$quote = Inspiring::quote();',
+                    '$quote',
+                ].join('\n'),
+                sourceLineEnd: 7,
+                sourceLineStart: 1,
+                strategy: 'eval',
+            }),
+        })
+    })
+
+    it('keeps top-level function declarations available for later line runs', () => {
+        const source = [
+            '<?php',
+            'use Illuminate\\Support\\Str;',
+            '',
+            'function formatString(string $string, string $mode): string {',
+            '    return match ($mode) {',
+            "        'slug' => Str::slug($string),",
+            "        'title' => Str::title($string),",
+            "        default => throw new Exception('Invalid mode'),",
+            '    };',
+            '}',
+            '',
+            "$quote = 'Hello world';",
+            "formatString($quote, 'title');",
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const active = new vscode.Position(12, 12)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'line',
+            selectionActiveOffset: document.offsetAt(active),
+            selectionEndLine: active.line,
+            selectionEndOffset: document.offsetAt(active),
+            selectionStartLine: active.line,
+            selectionStartOffset: document.offsetAt(new vscode.Position(12, 0)),
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                sourceCode: [
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string {',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => throw new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    "$quote = 'Hello world';",
+                    "formatString($quote, 'title');",
+                ].join('\n'),
+            }),
+        })
+    })
+
+    it('replays prior top-level array-entry assignments before later lines', () => {
+        const source = [
+            '<?php',
+            'use Illuminate\\Foundation\\Inspiring;',
+            'use Illuminate\\Support\\Str;',
+            '',
+            'function formatString(string $string, string $mode): string {',
+            '    return match ($mode) {',
+            "        'slug' => Str::slug($string),",
+            "        'title' => Str::title($string),",
+            "        default => throw new Exception('Invalid mode'),",
+            '    };',
+            '}',
+            '',
+            '$formattedQuote = [',
+            "    'original' => $quote = Inspiring::quotes()->random(),",
+            "    'slug' => formatString($quote, 'slug'),",
+            '];',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const active = new vscode.Position(14, 10)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'line',
+            selectionActiveOffset: document.offsetAt(active),
+            selectionEndLine: active.line,
+            selectionEndOffset: document.offsetAt(active),
+            selectionStartLine: active.line,
+            selectionStartOffset: document.offsetAt(new vscode.Position(14, 0)),
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                sourceCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string {',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => throw new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    '$quote = Inspiring::quotes()->random();',
+                    "formatString($quote, 'slug')",
+                ].join('\n'),
+            }),
+        })
+    })
+
+    it('keeps top-level function declarations available for later selections', () => {
+        const source = [
+            '<?php',
+            'use Illuminate\\Support\\Str;',
+            '',
+            'function formatString(string $string, string $mode): string {',
+            '    return match ($mode) {',
+            "        'slug' => Str::slug($string),",
+            "        'title' => Str::title($string),",
+            "        default => throw new Exception('Invalid mode'),",
+            '    };',
+            '}',
+            '',
+            "$quote = 'Hello world';",
+            "$formatted = formatString($quote, 'title');",
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const start = source.indexOf("formatString($quote, 'title')")
+        const end = start + "formatString($quote, 'title')".length
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: end,
+            selectionEndLine: document.positionAt(end).line,
+            selectionEndOffset: end,
+            selectionStartLine: document.positionAt(start).line,
+            selectionStartOffset: start,
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                sourceCode: [
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string {',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => throw new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    "$quote = 'Hello world';",
+                    "formatString($quote, 'title')",
+                ].join('\n'),
+            }),
+        })
+    })
+
     it('returns a typed planning error for multiple selections', () => {
         const document = createTextDocument('<?php\n$value = 1;\n')
         const start = new vscode.Position(1, 0)

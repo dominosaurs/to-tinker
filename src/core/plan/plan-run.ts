@@ -16,8 +16,6 @@ import {
 } from '../prepare/prepare-eval-source'
 import {
     extractFileFromText,
-    extractPrefixToLineFromText,
-    extractPrefixToOffsetFromText,
     extractSelectionFromText,
     lineEndOffset,
     lineNumberAtOffset,
@@ -176,18 +174,23 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         }
     }
 
-    const prefixSource = extractPrefixToOffsetFromText(
+    const sourceCode = buildTopLevelEvalSource(
         documentText,
-        selectionEndOffset,
+        selectionStartOffset,
+        extractSelectionFromText(
+            documentText,
+            selectionStartOffset,
+            selectionEndOffset,
+        ),
     )
-    assertCompleteEvalBoundary(prefixSource)
+    assertCompleteEvalBoundary(sourceCode)
 
     return {
         ok: true,
         plan: {
             mode: 'selection',
             smartCapture: true,
-            sourceCode: prefixSource,
+            sourceCode,
             sourceLineEnd: input.selectionEndLine + 1,
             sourceLineStart: 1,
             strategy: 'eval',
@@ -211,14 +214,13 @@ function planFileRun(input: PlanRunInput): EvalRunPlan {
 function planLineRun(input: PlanRunInput): EvalRunPlan {
     const { documentText, selectionActiveOffset } = input
     const lineNumber = lineNumberAtOffset(documentText, selectionActiveOffset)
+    const lineStart = lineStartOffset(documentText, lineNumber)
+    const lineEnd = lineEndOffset(documentText, lineNumber)
     const enclosingCallable =
         findEnclosingMethod(documentText, selectionActiveOffset) ??
         findEnclosingFunction(documentText, selectionActiveOffset)
 
     if (enclosingCallable) {
-        const lineStart = lineStartOffset(documentText, lineNumber)
-        const lineEnd = lineEndOffset(documentText, lineNumber)
-
         return {
             mode: 'line',
             smartCapture: true,
@@ -238,7 +240,11 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
     return {
         mode: 'line',
         smartCapture: true,
-        sourceCode: extractPrefixToLineFromText(documentText, lineNumber),
+        sourceCode: buildTopLevelEvalSource(
+            documentText,
+            lineStart,
+            extractSelectionFromText(documentText, lineStart, lineEnd),
+        ),
         sourceLineEnd: lineNumber + 1,
         sourceLineStart: 1,
         strategy: 'eval',
@@ -396,6 +402,21 @@ function buildCallableScopedEvalSource(
         : normalizedTarget
 }
 
+function buildTopLevelEvalSource(
+    text: string,
+    targetStartOffset: number,
+    targetSource: string,
+): string {
+    const leadingStatements = extractCompleteTopLevelStatements(
+        extractFileFromText(text.slice(0, targetStartOffset)),
+    )
+    const normalizedTarget = normalizeCallableTargetSource(targetSource)
+
+    return leadingStatements.length > 0
+        ? [...leadingStatements, normalizedTarget].join('\n')
+        : normalizedTarget
+}
+
 function findCallableBodyStart(
     text: string,
     callableStart: number,
@@ -408,6 +429,12 @@ function findCallableBodyStart(
 }
 
 function normalizeCallableTargetSource(source: string): string {
+    const valueExpression = extractTopLevelValueExpression(source)
+    if (valueExpression && source.includes('=>')) {
+        prepareEvalSource(valueExpression, true)
+        return valueExpression
+    }
+
     try {
         prepareEvalSource(source, true)
         return source
@@ -416,7 +443,6 @@ function normalizeCallableTargetSource(source: string): string {
             error instanceof Error &&
             error.message === INCOMPLETE_SNIPPET_ERROR
         ) {
-            const valueExpression = extractTopLevelValueExpression(source)
             if (valueExpression) {
                 prepareEvalSource(valueExpression, true)
                 return valueExpression
@@ -512,6 +538,18 @@ function extractCompleteTopLevelStatements(source: string): string[] {
 
         if (character === '}') {
             braceDepth = Math.max(0, braceDepth - 1)
+            if (
+                braceDepth === 0 &&
+                parenDepth === 0 &&
+                bracketDepth === 0 &&
+                isTopLevelDeclarationBlock(current)
+            ) {
+                const statement = current.trim()
+                if (statement) {
+                    statements.push(statement)
+                }
+                current = ''
+            }
             continue
         }
 
@@ -529,7 +567,39 @@ function extractCompleteTopLevelStatements(source: string): string[] {
         }
     }
 
-    return statements
+    return [...statements, ...extractTrailingArrayEntryStatements(current)]
+}
+
+function isTopLevelDeclarationBlock(source: string): boolean {
+    return /^(?:#\[[\s\S]*?\]\s*)*(?:function|class|trait|interface|enum)\b/u.test(
+        source.trim(),
+    )
+}
+
+function extractTrailingArrayEntryStatements(source: string): string[] {
+    if (!source.includes('[')) {
+        return []
+    }
+
+    return source
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .filter(line => !/^(?:return\s+)?\[|^[\])](?:[;,])?$/u.test(line))
+        .map(line => {
+            const valueExpression = extractTopLevelValueExpression(line)
+            if (valueExpression) {
+                return ensureStatement(valueExpression)
+            }
+
+            return undefined
+        })
+        .filter((value): value is string => Boolean(value))
+}
+
+function ensureStatement(source: string): string {
+    const trimmed = source.trim()
+    return /;\s*$/u.test(trimmed) ? trimmed : `${trimmed};`
 }
 
 function extractTopLevelValueExpression(source: string): string | undefined {

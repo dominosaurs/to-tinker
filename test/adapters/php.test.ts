@@ -99,6 +99,56 @@ describe('php', () => {
         )
     })
 
+    it('quotes raw string input for string parameters', async () => {
+        const showInputBox = vi.mocked(vscode.window.showInputBox)
+        showInputBox.mockResolvedValue('demo')
+
+        const value = await promptForParameter(
+            {
+                end: 10,
+                fullyQualifiedFunctionName: '\\App\\Support\\build_report',
+                functionName: 'build_report',
+                nameStart: 1,
+                namespaceName: 'App\\Support',
+                parameters: [],
+                start: 1,
+            },
+            {
+                hasDefault: false,
+                name: 'label',
+                resolvableByContainer: false,
+                signatureHint: 'string',
+            },
+        )
+
+        expect(value).toBe("'demo'")
+    })
+
+    it('normalizes common boolean input for bool parameters', async () => {
+        const showInputBox = vi.mocked(vscode.window.showInputBox)
+        showInputBox.mockResolvedValue('yes')
+
+        const value = await promptForParameter(
+            {
+                end: 10,
+                fullyQualifiedFunctionName: '\\App\\Support\\build_report',
+                functionName: 'build_report',
+                nameStart: 1,
+                namespaceName: 'App\\Support',
+                parameters: [],
+                start: 1,
+            },
+            {
+                hasDefault: false,
+                name: 'enabled',
+                resolvableByContainer: false,
+                signatureHint: 'bool',
+            },
+        )
+
+        expect(value).toBe('true')
+    })
+
     it('accepts an executable configured php path', () => {
         const tempRoot = fs.mkdtempSync(
             path.join(os.tmpdir(), 'to-tinker-php-'),
