@@ -48,6 +48,44 @@ export function createTextDocument(
     } as vscode.TextDocument
 }
 
+export function createCursorSelection(
+    position: vscode.Position,
+): vscode.Selection {
+    return new vscode.Selection(position, position)
+}
+
+export function createSelection(
+    start: vscode.Position,
+    end: vscode.Position,
+): vscode.Selection {
+    return new vscode.Selection(start, end)
+}
+
+export function createCursorEditor(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+) {
+    const selection = createCursorSelection(position)
+    return {
+        document,
+        selection,
+        selections: [selection],
+    }
+}
+
+export function createSelectionEditor(
+    document: vscode.TextDocument,
+    start: vscode.Position,
+    end: vscode.Position,
+) {
+    const selection = createSelection(start, end)
+    return {
+        document,
+        selection,
+        selections: [selection],
+    }
+}
+
 function offsetAt(text: string, position: vscode.Position): number {
     const lines = text.split('\n')
     let offset = 0

@@ -1,7 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { createTextDocument } from '../helpers'
+import {
+    createCursorEditor,
+    createSelectionEditor,
+    createTextDocument,
+} from '../helpers'
 import { commands, window, workspace } from '../vscode'
+import {
+    activateExtension,
+    expectLastExecutionMode,
+    getRegisteredCommand,
+    runCommand,
+    setActiveEditor,
+} from './extension-test-helpers'
 
 const executeTinker = vi.fn()
 const renderExecutionReport = vi.fn()
@@ -116,29 +127,16 @@ describe('extension orchestration', () => {
 
     it('runs selection through preflight and execution pipeline', async () => {
         const document = createTextDocument('<?php\n$foo = 1;\n')
-        const editor = {
-            document,
-            selection: new vscode.Selection(
+        setActiveEditor(
+            createSelectionEditor(
+                document,
                 new vscode.Position(1, 0),
                 new vscode.Position(1, 9),
             ),
-            selections: [
-                new vscode.Selection(
-                    new vscode.Position(1, 0),
-                    new vscode.Position(1, 9),
-                ),
-            ],
-        }
-        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        )
 
-        const { activate } = await import('../../src/extension')
-        const context = {
-            subscriptions: [],
-        } as unknown as vscode.ExtensionContext
-        activate(context)
-
-        const callback = getRegisteredCommand('toTinker.runDefault')
-        await callback()
+        await activateExtension()
+        await runCommand('toTinker.runDefault')
 
         expect(prepareExecutionEnvironment).toHaveBeenCalledWith(document)
         expect(buildTinkerPayload).toHaveBeenCalled()
@@ -392,25 +390,10 @@ getRandom();
 
 Inspiring::quote();
 `)
-        const cursor = new vscode.Selection(
-            new vscode.Position(8, 0),
-            new vscode.Position(8, 0),
-        )
-        const editor = {
-            document,
-            selection: cursor,
-            selections: [cursor],
-        }
-        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        setActiveEditor(createCursorEditor(document, new vscode.Position(8, 0)))
 
-        const { activate } = await import('../../src/extension')
-        const context = {
-            subscriptions: [],
-        } as unknown as vscode.ExtensionContext
-        activate(context)
-
-        const callback = getRegisteredCommand('toTinker.runFile')
-        await callback()
+        await activateExtension()
+        await runCommand('toTinker.runFile')
 
         expect(buildTinkerPayload).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -424,8 +407,15 @@ $__toTinkerResult = (Inspiring::quote());`,
         )
     })
 
-    it('defaults to file mode on the final structural closer line', async () => {
-        const source = `<?php
+    it.each([
+        {
+            label: 'final structural closer line',
+            selection: (document: vscode.TextDocument, source: string) =>
+                createCursorEditor(
+                    document,
+                    document.positionAt(source.indexOf('];') + 1),
+                ),
+            source: `<?php
 use Illuminate\\Foundation\\Inspiring;
 
 $quote = Inspiring::quote();
@@ -433,39 +423,16 @@ $quote = Inspiring::quote();
 return [
     'original' => $quote,
 ];
-`
-        const document = createTextDocument(source)
-        const closingOffset = source.indexOf('];')
-        const closingPosition = document.positionAt(closingOffset + 1)
-        const cursor = new vscode.Selection(closingPosition, closingPosition)
-        const editor = {
-            document,
-            selection: cursor,
-            selections: [cursor],
-        }
-        window.activeTextEditor = editor as unknown as vscode.TextEditor
-
-        const { activate } = await import('../../src/extension')
-        const context = {
-            subscriptions: [],
-        } as unknown as vscode.ExtensionContext
-        activate(context)
-
-        const callback = getRegisteredCommand('toTinker.runDefault')
-        await callback()
-
-        expect(executeTinker).toHaveBeenCalledWith(
-            expect.objectContaining({
-                mode: 'file',
-            }),
-            expect.anything(),
-            expect.anything(),
-            expect.anything(),
-        )
-    })
-
-    it('defaults to file mode when cursor is on trailing blank line after final closer', async () => {
-        const source = `<?php
+`,
+        },
+        {
+            label: 'trailing blank line after final closer',
+            selection: (document: vscode.TextDocument, source: string) =>
+                createCursorEditor(
+                    document,
+                    document.positionAt(source.length),
+                ),
+            source: `<?php
 use Illuminate\\Foundation\\Inspiring;
 
 $quote = Inspiring::quote();
@@ -474,38 +441,17 @@ return [
     'original' => $quote,
 ];
 
-`
-        const document = createTextDocument(source)
-        const trailingPosition = document.positionAt(source.length)
-        const cursor = new vscode.Selection(trailingPosition, trailingPosition)
-        const editor = {
-            document,
-            selection: cursor,
-            selections: [cursor],
-        }
-        window.activeTextEditor = editor as unknown as vscode.TextEditor
-
-        const { activate } = await import('../../src/extension')
-        const context = {
-            subscriptions: [],
-        } as unknown as vscode.ExtensionContext
-        activate(context)
-
-        const callback = getRegisteredCommand('toTinker.runDefault')
-        await callback()
-
-        expect(executeTinker).toHaveBeenCalledWith(
-            expect.objectContaining({
-                mode: 'file',
-            }),
-            expect.anything(),
-            expect.anything(),
-            expect.anything(),
-        )
-    })
-
-    it('treats whitespace-only trailing selection as default file run', async () => {
-        const source = `<?php
+`,
+        },
+        {
+            label: 'whitespace-only trailing selection',
+            selection: (document: vscode.TextDocument, source: string) =>
+                createSelectionEditor(
+                    document,
+                    document.positionAt(source.lastIndexOf('\n')),
+                    document.positionAt(source.length),
+                ),
+            source: `<?php
 use Illuminate\\Foundation\\Inspiring;
 
 $quote = Inspiring::quote();
@@ -514,41 +460,16 @@ return [
     'original' => $quote,
 ];
 
-`
-        const document = createTextDocument(source)
-        const start = source.lastIndexOf('\n')
-        const selection = new vscode.Selection(
-            document.positionAt(start),
-            document.positionAt(source.length),
-        )
-        const editor = {
-            document,
-            selection,
-            selections: [selection],
-        }
-        window.activeTextEditor = editor as unknown as vscode.TextEditor
-
-        const { activate } = await import('../../src/extension')
-        const context = {
-            subscriptions: [],
-        } as unknown as vscode.ExtensionContext
-        activate(context)
-
-        const callback = getRegisteredCommand('toTinker.runDefault')
-        await callback()
-
-        expect(executeTinker).toHaveBeenCalledWith(
-            expect.objectContaining({
-                mode: 'file',
-            }),
-            expect.anything(),
-            expect.anything(),
-            expect.anything(),
-        )
-    })
-
-    it('defaults to file mode on trailing comment lines after final closer', async () => {
-        const source = `<?php
+`,
+        },
+        {
+            label: 'trailing comment line after final closer',
+            selection: (document: vscode.TextDocument, source: string) =>
+                createCursorEditor(
+                    document,
+                    document.positionAt(source.indexOf('// trailing note') + 3),
+                ),
+            source: `<?php
 use Illuminate\\Foundation\\Inspiring;
 
 $quote = Inspiring::quote();
@@ -558,35 +479,16 @@ return [
 ];
 
 // trailing note
-`
+`,
+        },
+    ])('defaults to file mode on $label', async ({ selection, source }) => {
         const document = createTextDocument(source)
-        const commentOffset = source.indexOf('// trailing note')
-        const commentPosition = document.positionAt(commentOffset + 3)
-        const cursor = new vscode.Selection(commentPosition, commentPosition)
-        const editor = {
-            document,
-            selection: cursor,
-            selections: [cursor],
-        }
-        window.activeTextEditor = editor as unknown as vscode.TextEditor
+        setActiveEditor(selection(document, source))
 
-        const { activate } = await import('../../src/extension')
-        const context = {
-            subscriptions: [],
-        } as unknown as vscode.ExtensionContext
-        activate(context)
+        await activateExtension()
+        await runCommand('toTinker.runDefault')
 
-        const callback = getRegisteredCommand('toTinker.runDefault')
-        await callback()
-
-        expect(executeTinker).toHaveBeenCalledWith(
-            expect.objectContaining({
-                mode: 'file',
-            }),
-            expect.anything(),
-            expect.anything(),
-            expect.anything(),
-        )
+        expectLastExecutionMode(executeTinker, 'file')
     })
 
     it('keeps top-level function declarations in line runs that call them later', async () => {
@@ -1504,17 +1406,3 @@ function build_report(string $label) {
         )
     })
 })
-
-function getRegisteredCommand(
-    command: string,
-): (...args: unknown[]) => Promise<void> {
-    const registered = commands.registerCommand.mock.calls.find(
-        ([name]) => name === command,
-    )
-
-    if (!registered) {
-        throw new Error(`Missing registered command: ${command}`)
-    }
-
-    return registered[1] as (...args: unknown[]) => Promise<void>
-}
