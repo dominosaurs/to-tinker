@@ -99,11 +99,33 @@ function renderValuePhp(ifLine: string): string[] {
         '    } elseif ($__toTinkerResult instanceof JsonSerializable) {',
         '        echo json_encode($__toTinkerResult, JSON_PRETTY_PRINT) . "\\n";',
         '    } elseif (is_array($__toTinkerResult)) {',
-        '        print_r($__toTinkerResult);',
+        '        $__toTinkerJson = json_encode($__toTinkerResult, JSON_PRETTY_PRINT);',
+        '        if ($__toTinkerJson !== false) {',
+        '            echo $__toTinkerJson . "\\n";',
+        '        } else {',
+        '            print_r($__toTinkerResult);',
+        '        }',
         '    } elseif ($__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Model || $__toTinkerResult instanceof \\Illuminate\\Database\\Eloquent\\Collection) {',
         '        echo json_encode($__toTinkerResult->toArray(), JSON_PRETTY_PRINT) . "\\n";',
         '    } else {',
-        '        print_r($__toTinkerResult);',
+        ...renderObjectDumpPhp('        '),
         '    }',
+    ]
+}
+
+function renderObjectDumpPhp(indent: string): string[] {
+    return [
+        `${indent}if (function_exists('dump')) {`,
+        `${indent}    ob_start();`,
+        `${indent}    dump($__toTinkerResult);`,
+        `${indent}    $__toTinkerDump = trim(ob_get_clean());`,
+        `${indent}    echo ($__toTinkerDump !== '' ? $__toTinkerDump : get_debug_type($__toTinkerResult)) . "\\n";`,
+        `${indent}} else {`,
+        `${indent}    $__toTinkerClass = get_debug_type($__toTinkerResult);`,
+        `${indent}    $__toTinkerShortClass = str_contains($__toTinkerClass, '\\\\')`,
+        `${indent}        ? substr($__toTinkerClass, strrpos($__toTinkerClass, '\\\\') + 1)`,
+        `${indent}        : $__toTinkerClass;`,
+        `${indent}    echo $__toTinkerShortClass . " object\\n";`,
+        `${indent}}`,
     ]
 }

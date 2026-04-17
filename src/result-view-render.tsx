@@ -527,7 +527,7 @@ function renderTokenHtml(token: HighlightToken): string {
     return `<span ${attrs.join(' ')}>${escapeHtml(token.content)}</span>`
 }
 
-function detectLanguage(
+export function detectLanguage(
     mode: string,
     value: string,
     isSource: boolean,
@@ -544,7 +544,33 @@ function detectLanguage(
         return 'json'
     }
 
+    if (looksLikeDumpOutput(trimmed)) {
+        return 'php'
+    }
+
+    if (looksLikePhpLiteralOutput(trimmed)) {
+        return 'php'
+    }
+
     return 'text'
+}
+
+function looksLikeDumpOutput(value: string): boolean {
+    return (
+        /(?:^|\n)[A-Z_a-z\\][\w\\]*\s*\{#\d+/u.test(value) ||
+        /(?:^|\n)\s*[+#?]?[A-Za-z_][\w-]*:\s+[A-Z_a-z\\][\w\\]*\s*\{#\d+/u.test(
+            value,
+        ) ||
+        /(?:^|\n)\s*[+#?]?[A-Za-z_][\w-]*:\s+/u.test(value)
+    )
+}
+
+function looksLikePhpLiteralOutput(value: string): boolean {
+    return (
+        /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) ||
+        /^(?:true|false|null|NULL)$/u.test(value) ||
+        /^(["']).*\1$/su.test(value)
+    )
 }
 
 function escapeHtml(value: string): string {

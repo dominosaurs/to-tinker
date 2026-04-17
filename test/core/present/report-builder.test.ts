@@ -72,4 +72,60 @@ describe('report builder', () => {
         expect(built.report.diagnostics).toContain('elapsed_ms=1')
         expect(built.userMessage).toBeUndefined()
     })
+
+    it('strips Tinker alias headers and PsySH eval footers from success output', () => {
+        const result: ExecutionResult = {
+            stderr: '',
+            stdout: `__TO_TINKER_RESULT__
+[!] Aliasing 'User' to 'App\\Models\\User' for this Tinker session.
+Illuminate\\Database\\Eloquent\\Builder {#7622
+} // vendor/psy/psysh/src/ExecutionClosure.php(41) : eval()'d code(34) : eval()'d code:1
+__TO_TINKER_DIAGNOSTICS__
+elapsed_ms=1
+`,
+            timedOut: false,
+        }
+
+        const built = buildExecutionReport(createRequest(), result)
+
+        expect(built.report.result).toBe(
+            'Illuminate\\Database\\Eloquent\\Builder {#7622\n}',
+        )
+    })
+
+    it('strips trailing duplicate dump class summary lines', () => {
+        const result: ExecutionResult = {
+            stderr: '',
+            stdout: `__TO_TINKER_RESULT__
+Illuminate\\Database\\Eloquent\\Builder {#7622
+}
+Illuminate\\Database\\Eloquent\\Builder
+__TO_TINKER_DIAGNOSTICS__
+elapsed_ms=1
+`,
+            timedOut: false,
+        }
+
+        const built = buildExecutionReport(createRequest(), result)
+
+        expect(built.report.result).toBe(
+            'Illuminate\\Database\\Eloquent\\Builder {#7622\n}',
+        )
+    })
+
+    it('strips PsySH eval footers from error output', () => {
+        const result: ExecutionResult = {
+            stderr: '',
+            stdout: `__TO_TINKER_ERROR__
+Boom // vendor/psy/psysh/src/ExecutionClosure.php(41) : eval()'d code(34) : eval()'d code:1
+__TO_TINKER_DIAGNOSTICS__
+elapsed_ms=2
+`,
+            timedOut: false,
+        }
+
+        const built = buildExecutionReport(createRequest(), result)
+
+        expect(built.report.error).toBe('Boom')
+    })
 })

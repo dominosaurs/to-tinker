@@ -264,6 +264,36 @@ $__toTinkerResult = (getValue1());`,
         )
     })
 
+    it('renders generic objects through buffered dump with summary fallback', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: 'User::query()',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain("if (function_exists('dump')) {")
+        expect(payload).toContain('dump($__toTinkerResult);')
+        expect(payload).toContain('$__toTinkerShortClass . " object\\n";')
+    })
+
+    it('renders arrays as pretty json before print_r fallback', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: '[1, 2, 3]',
+            smartCapture: true,
+        })
+
+        expect(payload).toContain(
+            '$__toTinkerJson = json_encode($__toTinkerResult, JSON_PRETTY_PRINT);',
+        )
+        expect(payload).toContain('if ($__toTinkerJson !== false) {')
+        expect(payload).toContain('print_r($__toTinkerResult);')
+    })
+
     it('preserves captured result assignments instead of overwriting them with eval null', () => {
         const payload = buildTinkerPayload({
             fakeStorage: false,

@@ -43,7 +43,7 @@ export function buildExecutionReport(
                 diagnostics: normalizeDiagnostics(
                     [diagnosticsBody, result.stderr].join('\n'),
                 ),
-                error: errorBody.trim() || 'Execution failed.',
+                error: sanitizeRenderedOutput(errorBody) || 'Execution failed.',
                 status: 'error',
                 summary,
             },
@@ -55,7 +55,7 @@ export function buildExecutionReport(
         return {
             report: {
                 diagnostics: normalizeDiagnostics(result.stderr),
-                result: stdout.trim() || 'null',
+                result: sanitizeRenderedOutput(stdout) || 'null',
                 status: 'success',
                 summary,
             },
@@ -70,7 +70,7 @@ export function buildExecutionReport(
             diagnostics: normalizeDiagnostics(
                 [diagnosticsBody, result.stderr].join('\n'),
             ),
-            result: resultBody.trim() || 'null',
+            result: sanitizeRenderedOutput(resultBody) || 'null',
             status: 'success',
             summary,
         },
@@ -80,6 +80,40 @@ export function buildExecutionReport(
 function normalizeDiagnostics(value: string): string {
     const text = value.trim()
     return text || 'none'
+}
+
+function sanitizeRenderedOutput(value: string): string {
+    const sanitized = value
+        .replace(
+            /^\[!\]\s+Aliasing\s+'.*?'\s+to\s+'.*?'\s+for\s+this\s+Tinker\s+session\.\n?/gmu,
+            '',
+        )
+        .replace(
+            /\s*\/\/\s+vendor\/psy\/psysh\/src\/ExecutionClosure\.php\(\d+\)\s+:\s+eval\(\)'d code(?:\(\d+\)\s+:\s+eval\(\)'d code)*:\d+/gu,
+            '',
+        )
+        .trim()
+
+    return stripTrailingDuplicateDumpClassLine(sanitized)
+}
+
+function stripTrailingDuplicateDumpClassLine(value: string): string {
+    const lines = value.split('\n')
+    if (lines.length < 2) {
+        return value
+    }
+
+    const firstLine = lines[0]?.trim()
+    const lastLine = lines.at(-1)?.trim()
+    const firstClassName = firstLine?.match(
+        /^([A-Z_a-z\\][\w\\]*)\s+\{#\d+/u,
+    )?.[1]
+
+    if (!firstClassName || !lastLine || lastLine !== firstClassName) {
+        return value
+    }
+
+    return lines.slice(0, -1).join('\n').trimEnd()
 }
 
 function buildSummary(request: ExecutionRequest): RunSummary {
