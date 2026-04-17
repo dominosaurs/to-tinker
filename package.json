@@ -1,13 +1,7 @@
 {
     "$schema": "https://json.schemastore.org/package.json",
     "activationEvents": [
-        "onLanguage:php",
-        "onCommand:toTinker.runDefault",
-        "onCommand:toTinker.runFile",
-        "onCommand:toTinker.runMethodAt",
-        "onCommand:toTinker.runFunctionAt",
-        "onCommand:toTinker.showLogs",
-        "onCommand:toTinker.toggleSandbox"
+        "onLanguage:php"
     ],
     "author": {
         "name": "dominosaurs",
@@ -40,7 +34,10 @@
                 "category": "To Tinker",
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
-                "icon": "$(github-action)",
+                "icon": {
+                    "dark": "assets/images/file-icon32.png",
+                    "light": "assets/images/file-icon32.png"
+                },
                 "title": "To Tinker: File"
             },
             {
@@ -128,6 +125,7 @@
     "files": [
         "assets/images/icon256.png",
         "assets/images/icon32.png",
+        "assets/images/file-icon32.png",
         "dist/**",
         "LICENSE",
         "package.json",
