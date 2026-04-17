@@ -29,9 +29,9 @@ const shiki = createSingletonShorthands(
             php: async () => (await import('@shikijs/langs/php')).default,
         },
         themes: {
-            dark: async () =>
+            'github-dark': async () =>
                 (await import('@shikijs/themes/github-dark')).default,
-            light: async () =>
+            'github-light': async () =>
                 (await import('@shikijs/themes/github-light')).default,
         },
     }),
@@ -56,8 +56,8 @@ export async function highlightCodeLines(
             grammarContextCode: language === 'php' ? '<?php\n' : undefined,
             lang: language,
             themes: {
-                dark: 'dark',
-                light: 'light',
+                dark: 'github-dark',
+                light: 'github-light',
             },
         })
 
