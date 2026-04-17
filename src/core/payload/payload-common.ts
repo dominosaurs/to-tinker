@@ -68,6 +68,11 @@ export function renderResultPhp(includeBufferedOutput: boolean): string {
                   ),
               ]
             : [...renderValuePhp('    if (true) {')]),
+        '    echo "__TO_TINKER_META__\\n";',
+        '    echo json_encode([',
+        "        'type' => get_debug_type($__toTinkerResult),",
+        "        'class' => is_object($__toTinkerResult) ? get_class($__toTinkerResult) : null,",
+        '    ], JSON_UNESCAPED_SLASHES) . "\\n";',
         '    echo "\\n__TO_TINKER_DIAGNOSTICS__\\n";',
         '    echo \'elapsed_ms=\' . $__toTinkerElapsedMs . "\\n";',
         '}',

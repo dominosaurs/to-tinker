@@ -67,6 +67,29 @@ describe('output', () => {
 
         expect(panel.webview.html).toContain('To Tinker v0.1.1')
     })
+
+    it('enables command uris in the report webview', async () => {
+        const output = new Output()
+
+        await output.show({
+            status: 'success',
+            summary: {
+                filePath: '/tmp/demo.php',
+                mode: 'selection',
+                rootPath: '/tmp',
+                sandboxEnabled: true,
+            },
+        })
+
+        expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
+            'toTinkerReport',
+            'To Tinker',
+            expect.anything(),
+            expect.objectContaining({
+                enableCommandUris: true,
+            }),
+        )
+    })
 })
 
 describe('result view rendering', () => {
@@ -149,5 +172,43 @@ describe('result view rendering', () => {
         expect(sandboxedHtml).toContain('sandbox')
         expect(unsafeHtml).toContain('class="chip chip-alert"')
         expect(unsafeHtml).toContain('⚠ no sandbox')
+    })
+
+    it('renders output type links for external docs', async () => {
+        const html = await renderResultView({
+            result: '{}',
+            status: 'success',
+            summary: {
+                filePath: '/tmp/demo.php',
+                mode: 'selection',
+                outputDocUrl:
+                    'https://api.laravel.com/docs/12.x/Illuminate/Support/Collection.html',
+                outputTypeLabel: 'Illuminate\\Support\\Collection',
+                rootPath: '/tmp',
+                sandboxEnabled: true,
+            },
+        })
+
+        expect(html).toContain('Output')
+        expect(html).toContain('Illuminate\\Support\\Collection')
+        expect(html).toContain('command:toTinker.openResultTypeLink?')
+    })
+
+    it('renders output type links for local app classes', async () => {
+        const html = await renderResultView({
+            result: '{}',
+            status: 'success',
+            summary: {
+                filePath: '/tmp/demo.php',
+                mode: 'selection',
+                outputLocalFile: '/tmp/app/Models/User.php',
+                outputTypeLabel: 'App\\Models\\User',
+                rootPath: '/tmp',
+                sandboxEnabled: true,
+            },
+        })
+
+        expect(html).toContain('App\\Models\\User')
+        expect(html).toContain('command:toTinker.openResultTypeLink?')
     })
 })

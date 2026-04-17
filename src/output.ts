@@ -57,6 +57,7 @@ export class Output {
                 viewColumn: vscode.ViewColumn.Beside,
             },
             {
+                enableCommandUris: true,
                 enableFindWidget: true,
                 enableScripts: false,
                 retainContextWhenHidden: true,

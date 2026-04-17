@@ -1,5 +1,6 @@
 import type { ComponentChildren, JSX } from 'preact'
 import renderToString from 'preact-render-to-string'
+import { COMMANDS } from './commands'
 import { buildResultViewModel } from './core/present/result-view-model'
 import type {
     HighlightLanguage,
@@ -30,7 +31,10 @@ interface ViewModel {
     mode: string
     modeLabel: string
     notice?: string
+    outputDocUrl?: string
+    outputLocalFile?: string
     output?: HighlightLine[]
+    outputTypeLabel?: string
     sandboxLabel: string
     sandboxTone: 'alert' | 'muted'
     source?: HighlightLine[]
@@ -73,6 +77,9 @@ async function toViewModel(
                   detectLanguage(model.mode, model.outputText, false),
               )
             : undefined,
+        outputDocUrl: model.outputDocUrl,
+        outputLocalFile: model.outputLocalFile,
+        outputTypeLabel: model.outputTypeLabel,
         sandboxLabel: model.sandboxLabel,
         sandboxTone: model.sandboxTone,
         source: model.sourceText
@@ -113,7 +120,7 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
                 ) : null}
 
                 {view.output ? (
-                    <Section title="Output">
+                    <Section title={<OutputTitle view={view} />}>
                         <div class="block result">
                             <HighlightedPre lines={view.output} />
                         </div>
@@ -171,13 +178,37 @@ function Section({
     title,
 }: {
     children: ComponentChildren
-    title: string
+    title: ComponentChildren
 }): JSX.Element {
     return (
         <>
-            <h2>{title}</h2>
+            <h2 class="section-title">{title}</h2>
             {children}
         </>
+    )
+}
+
+function OutputTitle({ view }: { view: ViewModel }): JSX.Element {
+    return (
+        <span class="section-title-inner">
+            <span>Output</span>
+            {view.outputTypeLabel ? <OutputTypeLink view={view} /> : null}
+        </span>
+    )
+}
+
+function OutputTypeLink({ view }: { view: ViewModel }): JSX.Element {
+    const label = view.outputTypeLabel ?? ''
+    const href = buildOutputTypeHref(view)
+
+    if (!href) {
+        return <span class="output-type-label">{label}</span>
+    }
+
+    return (
+        <a class="output-link output-type-label" href={href}>
+            {label}
+        </a>
     )
 }
 
@@ -233,6 +264,33 @@ function SpanGroup({ children }: { children: ComponentChildren }): JSX.Element {
     return <>{children}</>
 }
 
+function buildOutputTypeHref(view: ViewModel): string | undefined {
+    if (view.outputLocalFile) {
+        return createCommandHref({
+            kind: 'local',
+            value: view.outputLocalFile,
+        })
+    }
+
+    if (view.outputDocUrl) {
+        return createCommandHref({
+            kind: 'external',
+            value: view.outputDocUrl,
+        })
+    }
+
+    return undefined
+}
+
+function createCommandHref(payload: {
+    kind: 'external' | 'local'
+    value: string
+}): string {
+    return `command:${COMMANDS.openResultTypeLink}?${encodeURIComponent(
+        JSON.stringify([payload]),
+    )}`
+}
+
 async function highlightLines(
     value: string,
     language: HighlightLanguage,
@@ -271,6 +329,15 @@ function styles(): string {
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: var(--muted);
+        }
+        .section-title {
+            display: block;
+        }
+        .section-title-inner {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 16px;
         }
         .top { margin-bottom: 18px; }
         .app-line {
@@ -348,6 +415,21 @@ function styles(): string {
         .meta-value-mode {
             color: var(--info);
             font-weight: 700;
+        }
+        .output-link {
+            color: inherit;
+            font-weight: 400;
+            letter-spacing: inherit;
+            text-transform: none;
+            text-decoration: none;
+        }
+        .output-type-label {
+            text-transform: none;
+            letter-spacing: normal;
+            font-weight: 400;
+        }
+        .output-link:hover {
+            text-decoration: underline;
         }
         .notice {
             margin-top: 18px;

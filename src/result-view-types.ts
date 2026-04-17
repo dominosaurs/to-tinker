@@ -11,6 +11,9 @@ export interface RunSummary {
     sandboxEnabled: boolean
     sourceCode?: string
     displaySourceCode?: string
+    outputTypeLabel?: string
+    outputDocUrl?: string
+    outputLocalFile?: string
     sourceLineStart?: number
     sourceLineEnd?: number
     className?: string

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import * as vscode from 'vscode'
+import { COMMANDS } from '../../src/commands'
 import { createCursorEditor, createTextDocument } from '../helpers'
-import { commands } from '../vscode'
+import { commands, env, window, workspace } from '../vscode'
 import { useExtensionFixture } from './extension-fixture'
-import { activateExtension, setActiveEditor } from './extension-test-helpers'
+import {
+    activateAndRunCommand,
+    activateExtension,
+    setActiveEditor,
+} from './extension-test-helpers'
 
 describe('extension ui context', () => {
     useExtensionFixture()
@@ -51,5 +56,32 @@ return $value;
             'toTinker.showRunFile',
             true,
         )
+    })
+
+    it('opens external docs links from the result view command bridge', async () => {
+        await activateAndRunCommand(COMMANDS.openResultTypeLink, {
+            kind: 'external',
+            value: 'https://www.php.net/manual/en/language.types.string.php',
+        })
+
+        expect(env.openExternal).toHaveBeenCalledWith(
+            expect.objectContaining({
+                fsPath: 'https://www.php.net/manual/en/language.types.string.php',
+            }),
+        )
+    })
+
+    it('opens local app class files from the result view command bridge', async () => {
+        await activateAndRunCommand(COMMANDS.openResultTypeLink, {
+            kind: 'local',
+            value: '/workspace/app/Models/User.php',
+        })
+
+        expect(workspace.openTextDocument).toHaveBeenCalledWith(
+            expect.objectContaining({
+                fsPath: '/workspace/app/Models/User.php',
+            }),
+        )
+        expect(window.showTextDocument).toHaveBeenCalled()
     })
 })

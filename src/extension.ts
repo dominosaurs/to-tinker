@@ -22,6 +22,11 @@ interface RunRequest {
     target?: unknown
 }
 
+interface ResultTypeLinkPayload {
+    kind: 'external' | 'local'
+    value: string
+}
+
 export function activate(context: vscode.ExtensionContext): void {
     output.register(context)
     codeLensProvider.register(context)
@@ -51,6 +56,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand(COMMANDS.showLogs, async () => {
             log.show()
         }),
+        vscode.commands.registerCommand(
+            COMMANDS.openResultTypeLink,
+            async (payload: ResultTypeLinkPayload) => {
+                await openResultTypeLink(payload)
+            },
+        ),
         vscode.commands.registerCommand(COMMANDS.toggleSandbox, async () => {
             await toggleSandbox()
         }),
@@ -216,6 +227,20 @@ async function toggleSandbox(): Promise<void> {
     void vscode.window.showInformationMessage(
         `To Tinker sandbox ${enabled ? 'enabled' : 'disabled'}.`,
     )
+}
+
+async function openResultTypeLink(
+    payload: ResultTypeLinkPayload,
+): Promise<void> {
+    if (payload.kind === 'external') {
+        await vscode.env.openExternal(vscode.Uri.parse(payload.value))
+        return
+    }
+
+    const document = await vscode.workspace.openTextDocument(
+        vscode.Uri.file(payload.value),
+    )
+    await vscode.window.showTextDocument(document)
 }
 
 function resolveEditor(target: unknown): vscode.TextEditor | undefined {

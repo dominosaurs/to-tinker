@@ -8,7 +8,10 @@ interface ResultViewModel {
     mode: string
     modeLabel: string
     notice?: string
+    outputDocUrl?: string
+    outputLocalFile?: string
     outputText?: string
+    outputTypeLabel?: string
     sandboxLabel: string
     sandboxTone: 'alert' | 'muted'
     sourceLineStart?: number
@@ -39,7 +42,10 @@ export function buildResultViewModel(
         mode: summary.mode,
         modeLabel,
         notice: stripElapsed(diagnostics) || undefined,
+        outputDocUrl: summary.outputDocUrl,
+        outputLocalFile: summary.outputLocalFile,
         outputText: report.result,
+        outputTypeLabel: summary.outputTypeLabel,
         sandboxLabel,
         sandboxTone: summary.sandboxEnabled ? 'muted' : 'alert',
         sourceLineStart: summary.sourceLineStart,

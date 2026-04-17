@@ -77,6 +77,7 @@ export const window = {
     showErrorMessage: vi.fn(),
     showInformationMessage: vi.fn(),
     showInputBox: vi.fn(),
+    showTextDocument: vi.fn(),
     visibleTextEditors: [] as unknown[],
 }
 
@@ -91,6 +92,10 @@ export const workspace = {
     openTextDocument: vi.fn(async (uri: { fsPath: string }) => ({ uri })),
     registerTextDocumentContentProvider: vi.fn(() => ({ dispose: vi.fn() })),
     workspaceFolders: [] as unknown[],
+}
+
+export const env = {
+    openExternal: vi.fn(),
 }
 
 export const Uri = {
