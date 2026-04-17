@@ -107,15 +107,16 @@
     "devDependencies": {
         "@biomejs/biome": "2.4.12",
         "@shikijs/core": "^4.0.2",
+        "@shikijs/engine-javascript": "^4.0.2",
         "@shikijs/langs": "^4.0.2",
         "@shikijs/themes": "^4.0.2",
+        "@shikijs/types": "^4.0.2",
         "@types/node": "^24.12.2",
         "@types/vscode": "^1.116.0",
         "@vscode/vsce": "^3.9.0",
         "knip": "^6.4.1",
         "preact": "^10.29.1",
         "preact-render-to-string": "^6.6.7",
-        "shiki": "^4.0.2",
         "typescript": "^6.0.3",
         "vite": "^8.0.8",
         "vitest": "^4.1.4"

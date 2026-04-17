@@ -1,46 +1,25 @@
-import {
-    createBundledHighlighter,
-    createSingletonShorthands,
-} from '@shikijs/core'
-import jsonLanguage from '@shikijs/langs/json'
-import phpLanguage from '@shikijs/langs/php'
-import githubDarkTheme from '@shikijs/themes/github-dark'
-import githubLightTheme from '@shikijs/themes/github-light'
 import type { ComponentChildren, JSX } from 'preact'
 import renderToString from 'preact-render-to-string'
-import type { ThemedTokenWithVariants } from 'shiki'
-import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 import { buildResultViewModel } from './core/present/result-view-model'
+import type {
+    HighlightLanguage,
+    HighlightLine,
+    HighlightToken,
+} from './result-view-highlighter'
 import type { AppInfo, RunReport } from './result-view-types'
 
-const shiki = createSingletonShorthands(
-    createBundledHighlighter({
-        engine: createJavaScriptRegexEngine,
-        langs: {
-            json: async () => jsonLanguage,
-            php: async () => phpLanguage,
-        },
-        themes: {
-            dark: async () => githubDarkTheme,
-            light: async () => githubLightTheme,
-        },
-    }),
-)
+let resultViewHighlighterModulePromise:
+    | Promise<typeof import('./result-view-highlighter')>
+    | undefined
 
-type HighlightLanguage = 'json' | 'php' | 'text'
+function loadResultViewHighlighterModule(): Promise<
+    typeof import('./result-view-highlighter')
+> {
+    if (!resultViewHighlighterModulePromise) {
+        resultViewHighlighterModulePromise = import('./result-view-highlighter')
+    }
 
-interface HighlightToken {
-    content: string
-    darkColor?: string
-    lightColor?: string
-    bold?: boolean
-    italic?: boolean
-    strike?: boolean
-    underline?: boolean
-}
-
-interface HighlightLine {
-    tokens: HighlightToken[]
+    return resultViewHighlighterModulePromise
 }
 
 interface ViewModel {
@@ -258,59 +237,8 @@ async function highlightLines(
     value: string,
     language: HighlightLanguage,
 ): Promise<HighlightLine[]> {
-    if (!value) {
-        return [{ tokens: [createPlainToken(' ')] }]
-    }
-
-    if (language === 'text') {
-        return value.split('\n').map(line => ({
-            tokens: [createPlainToken(line || ' ')],
-        }))
-    }
-
-    try {
-        const lines = await shiki.codeToTokensWithThemes(value, {
-            grammarContextCode: language === 'php' ? '<?php\n' : undefined,
-            lang: language,
-            themes: {
-                dark: githubDarkTheme,
-                light: githubLightTheme,
-            },
-        })
-
-        return lines.length > 0
-            ? lines.map(line => ({
-                  tokens:
-                      line.length > 0
-                          ? line.map(mapToken)
-                          : [createPlainToken(' ')],
-              }))
-            : [{ tokens: [createPlainToken(' ')] }]
-    } catch {
-        return value.split('\n').map(line => ({
-            tokens: [createPlainToken(line || ' ')],
-        }))
-    }
-}
-
-function mapToken(token: ThemedTokenWithVariants): HighlightToken {
-    const light = token.variants.light ?? {}
-    const dark = token.variants.dark ?? {}
-    const fontStyle = light.fontStyle ?? dark.fontStyle ?? 0
-
-    return {
-        bold: Boolean(fontStyle & 2),
-        content: token.content,
-        darkColor: dark.color ?? light.color,
-        italic: Boolean(fontStyle & 1),
-        lightColor: light.color ?? dark.color,
-        strike: Boolean(fontStyle & 8),
-        underline: Boolean(fontStyle & 4),
-    }
-}
-
-function createPlainToken(content: string): HighlightToken {
-    return { content }
+    const { highlightCodeLines } = await loadResultViewHighlighterModule()
+    return highlightCodeLines(value, language)
 }
 
 function styles(): string {
