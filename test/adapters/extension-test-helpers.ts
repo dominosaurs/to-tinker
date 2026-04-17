@@ -25,6 +25,14 @@ export async function runCommand(
     await getRegisteredCommand(command)(...args)
 }
 
+export async function activateAndRunCommand(
+    command: string,
+    ...args: unknown[]
+): Promise<void> {
+    await activateExtension()
+    await runCommand(command, ...args)
+}
+
 export function expectLastExecutionMode(
     executeTinker: (...args: unknown[]) => unknown,
     mode: 'file' | 'line' | 'selection',
