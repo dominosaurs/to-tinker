@@ -48,9 +48,7 @@ export function createTextDocument(
     } as vscode.TextDocument
 }
 
-export function createCursorSelection(
-    position: vscode.Position,
-): vscode.Selection {
+function createCursorSelection(position: vscode.Position): vscode.Selection {
     return new vscode.Selection(position, position)
 }
 

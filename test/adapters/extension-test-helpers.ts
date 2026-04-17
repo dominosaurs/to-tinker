@@ -45,7 +45,7 @@ export function expectLastExecutionMode(
     )
 }
 
-export function getRegisteredCommand(
+function getRegisteredCommand(
     command: string,
 ): (...args: unknown[]) => Promise<void> {
     const registered = commands.registerCommand.mock.calls.find(

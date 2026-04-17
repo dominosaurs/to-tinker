@@ -12,7 +12,7 @@ import {
     resolveMethodArguments,
 } from './resolve-run-arguments'
 
-export interface PrepareExecutionContext {
+interface PrepareExecutionContext {
     fakeStorage: boolean
     filePath: string
     sandboxEnabled: boolean

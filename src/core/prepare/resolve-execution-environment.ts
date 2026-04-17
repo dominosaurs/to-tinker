@@ -3,7 +3,7 @@ import { resolvePhpExecutable } from '../../php'
 import { type LaravelWorkspace, resolveLaravelWorkspace } from '../../workspace'
 import { validateRunnableDocument } from './validate-runnable-document'
 
-export interface ExecutionEnvironment {
+interface ExecutionEnvironment {
     phpExecutable: string
     workspace: LaravelWorkspace
 }

@@ -1,6 +1,6 @@
 import type { AppInfo, RunReport } from '../../result-view-types'
 
-export interface ResultViewModel {
+interface ResultViewModel {
     appLabel: string
     elapsed?: string
     error?: string

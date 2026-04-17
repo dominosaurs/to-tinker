@@ -42,7 +42,7 @@ export interface PlanRunInput {
     targetOffset?: number
 }
 
-export type PlanRunResult =
+type PlanRunResult =
     | { ok: true; plan: RunPlan }
     | { error: PlanningError; ok: false }
 

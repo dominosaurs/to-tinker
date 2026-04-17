@@ -1,5 +1,5 @@
 import { getConfig } from '../../config'
-import type { RunSummary } from '../../output'
+import type { RunSummary } from '../../result-view-types'
 import type { ExecutionRequest, ExecutionResult } from '../types/execution'
 import type { BuiltRunReport } from '../types/report'
 

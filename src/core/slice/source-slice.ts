@@ -36,37 +36,6 @@ export function extractFileFromText(text: string): string {
     return stripPhpTags(text)
 }
 
-export function extractPrefixToLine(
-    document: vscode.TextDocument,
-    position: vscode.Position,
-): string {
-    return extractPrefixToLineFromText(document.getText(), position.line)
-}
-
-export function extractPrefixToLineFromText(
-    text: string,
-    lineNumber: number,
-): string {
-    return stripPhpTags(text.slice(0, lineEndOffset(text, lineNumber)))
-}
-
-export function extractPrefixToSelectionEnd(
-    document: vscode.TextDocument,
-    selection: vscode.Selection,
-): string {
-    return extractPrefixToOffsetFromText(
-        document.getText(),
-        document.offsetAt(selection.end),
-    )
-}
-
-export function extractPrefixToOffsetFromText(
-    text: string,
-    endOffset: number,
-): string {
-    return stripPhpTags(text.slice(0, endOffset))
-}
-
 export function extractLine(
     document: vscode.TextDocument,
     position: vscode.Position,
@@ -74,7 +43,7 @@ export function extractLine(
     return extractLineFromText(document.getText(), position.line)
 }
 
-export function extractLineFromText(text: string, lineNumber: number): string {
+function extractLineFromText(text: string, lineNumber: number): string {
     const { end, start } = lineBoundsAt(text, lineNumber)
     const lineText = text.slice(start, end).trim()
 
@@ -122,7 +91,7 @@ export function trimWhitespaceBounds(
     return [trimmedStart, trimmedEnd]
 }
 
-export function stripPhpTags(text: string): string {
+function stripPhpTags(text: string): string {
     return text
         .replace(/^<\?php\s*/u, '')
         .replace(/\?>\s*$/u, '')

@@ -1,11 +1,11 @@
 import * as vscode from 'vscode'
 
-export interface SandboxConfig {
+interface SandboxConfig {
     defaultEnabled: boolean
     fakeStorage: boolean
 }
 
-export interface ExtensionConfig {
+interface ExtensionConfig {
     phpPath: string | undefined
     timeoutSeconds: number
     codeLensEnabled: boolean

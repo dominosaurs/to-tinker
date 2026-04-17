@@ -1,7 +1,7 @@
 import type * as vscode from 'vscode'
 import { trimWhitespaceBounds } from '../slice/source-slice'
 
-export interface ClassInfo {
+interface ClassInfo {
     name: string
     start: number
     bodyDepth: number
@@ -129,17 +129,6 @@ export function findFunctionMatchingSelectionInText(
     return findFunctionsInText(text).find(
         callable =>
             callable.start === trimmedStart && callable.end + 1 === trimmedEnd,
-    )
-}
-
-export function findMethodMatchingSelection(
-    document: vscode.TextDocument,
-    selection: vscode.Selection,
-): MethodInfo | undefined {
-    return findMethodMatchingSelectionInText(
-        document.getText(),
-        document.offsetAt(selection.start),
-        document.offsetAt(selection.end),
     )
 }
 

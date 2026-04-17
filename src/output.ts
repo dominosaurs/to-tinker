@@ -1,8 +1,6 @@
 import * as vscode from 'vscode'
 import { type AppInfo, type RunReport, renderResultView } from './result-view'
 
-export type { RunReport, RunSummary } from './result-view'
-
 export class Output {
     private appInfo: AppInfo = {
         name: 'To Tinker',

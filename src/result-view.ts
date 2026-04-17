@@ -1,2 +1,2 @@
 export { renderResultView } from './result-view-render'
-export type { AppInfo, RunReport, RunSummary } from './result-view-types'
+export type { AppInfo, RunReport } from './result-view-types'

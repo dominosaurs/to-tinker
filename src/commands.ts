@@ -7,6 +7,4 @@ export const COMMANDS = {
     toggleSandbox: 'toTinker.toggleSandbox',
 } as const
 
-export type CommandName = keyof typeof COMMANDS
-
 export type RunMode = 'selection' | 'file' | 'line' | 'method' | 'function'
