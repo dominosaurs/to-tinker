@@ -109,11 +109,11 @@
         "@types/node": "^24.12.2",
         "@types/vscode": "^1.116.0",
         "@vscode/test-electron": "^2.5.2",
-        "@vscode/vsce": "^3.8.1",
+        "@vscode/vsce": "^3.9.0",
         "preact": "^10.29.1",
         "preact-render-to-string": "^6.6.7",
         "shiki": "^4.0.2",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
         "vite": "^8.0.8",
         "vite-plugin-static-copy": "^4.0.1",
         "vitest": "^4.1.4"
