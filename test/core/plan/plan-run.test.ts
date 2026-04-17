@@ -125,6 +125,162 @@ describe('planRun', () => {
         })
     })
 
+    it('uses enclosing assignment expression when selecting lhs variable in a top-level array entry', () => {
+        const source = [
+            '<?php',
+            'use Illuminate\\Foundation\\Inspiring;',
+            'use Illuminate\\Support\\Str;',
+            '',
+            'function formatString(string $string, string $mode): string',
+            '{',
+            '    return match ($mode) {',
+            "        'slug' => Str::slug($string),",
+            "        'title' => Str::title($string),",
+            "        default => new Exception('Invalid mode'),",
+            '    };',
+            '}',
+            '',
+            '$formattedQuote = [',
+            "    'original' => $quote = Inspiring::quotes()->random(),",
+            "    'slug' => formatString($quote, 'slug'),",
+            '];',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const start = source.indexOf('$quote = Inspiring')
+        const end = start + '$quote'.length
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: end,
+            selectionEndLine: document.positionAt(end).line,
+            selectionEndOffset: end,
+            selectionStartLine: document.positionAt(start).line,
+            selectionStartOffset: start,
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                mode: 'selection',
+                sourceCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string',
+                    '{',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    '$quote = Inspiring::quotes()->random()',
+                ].join('\n'),
+                strategy: 'eval',
+            }),
+        })
+    })
+
+    it('does not replay incomplete assignment fragments before selected expressions in array entries', () => {
+        const source = [
+            '<?php',
+            '$formattedQuote = [',
+            "    'original' => $quote = Inspiring::quotes()->random(),",
+            '];',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const start = source.indexOf('Inspiring::quotes()')
+        const end = start + 'Inspiring::quotes()'.length
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: end,
+            selectionEndLine: document.positionAt(end).line,
+            selectionEndOffset: end,
+            selectionStartLine: document.positionAt(start).line,
+            selectionStartOffset: start,
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                mode: 'selection',
+                sourceCode: 'Inspiring::quotes()',
+                strategy: 'eval',
+            }),
+        })
+    })
+
+    it('allows selecting variable arguments in later array entries with prior assignment replayed', () => {
+        const source = [
+            '<?php',
+            'use Illuminate\\Foundation\\Inspiring;',
+            'use Illuminate\\Support\\Str;',
+            '',
+            'function formatString(string $string, string $mode): string',
+            '{',
+            '    return match ($mode) {',
+            "        'slug' => Str::slug($string),",
+            "        'title' => Str::title($string),",
+            "        default => new Exception('Invalid mode'),",
+            '    };',
+            '}',
+            '',
+            '$formattedQuote = [',
+            "    'original' => $quote = Inspiring::quotes()->random(),",
+            "    'slug' => formatString($quote, 'slug'),",
+            '];',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const start = source.indexOf("$quote, 'slug'")
+        const end = start + '$quote'.length
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'selection',
+            selectionActiveOffset: end,
+            selectionEndLine: document.positionAt(end).line,
+            selectionEndOffset: end,
+            selectionStartLine: document.positionAt(start).line,
+            selectionStartOffset: start,
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                mode: 'selection',
+                sourceCode: [
+                    'use Illuminate\\Foundation\\Inspiring;',
+                    'use Illuminate\\Support\\Str;',
+                    'function formatString(string $string, string $mode): string',
+                    '{',
+                    '    return match ($mode) {',
+                    "        'slug' => Str::slug($string),",
+                    "        'title' => Str::title($string),",
+                    "        default => new Exception('Invalid mode'),",
+                    '    };',
+                    '}',
+                    '$quote = Inspiring::quotes()->random();',
+                    '$quote',
+                ].join('\n'),
+                strategy: 'eval',
+            }),
+        })
+    })
+
     it('reduces selected array entries to their value expression inside callables', () => {
         const source = [
             '<?php',

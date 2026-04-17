@@ -119,6 +119,7 @@ function stripTrailingDuplicateDumpClassLine(value: string): string {
 function buildSummary(request: ExecutionRequest): RunSummary {
     return {
         className: request.method?.className,
+        displaySourceCode: request.displaySourceCode,
         filePath: request.filePath,
         functionName: request.callableFunction?.functionName,
         methodName: request.method?.methodName,

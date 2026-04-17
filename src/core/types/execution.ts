@@ -18,6 +18,7 @@ export interface ExecutionRequest {
     filePath: string
     sandboxEnabled: boolean
     sourceCode?: string
+    displaySourceCode?: string
     sourceLineStart?: number
     sourceLineEnd?: number
     method?: MethodInfo

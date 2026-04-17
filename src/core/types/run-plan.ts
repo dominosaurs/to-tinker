@@ -4,6 +4,7 @@ import type { FunctionInfo, MethodInfo } from '../discovery/callable-discovery'
 interface BaseRunPlan {
     mode: RunMode
     sourceCode?: string
+    displaySourceCode?: string
     sourceLineStart?: number
     sourceLineEnd?: number
 }

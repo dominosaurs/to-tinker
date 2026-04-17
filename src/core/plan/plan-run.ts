@@ -112,6 +112,11 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         selectionStartOffset,
         selectionEndOffset,
     )
+    const targetSource = resolveSelectionTargetSource(
+        documentText,
+        selectionStartOffset,
+        selectionEndOffset,
+    )
     if (method) {
         return { ok: true, plan: createMethodPlan(input, method) }
     }
@@ -134,13 +139,7 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
             plan: createFunctionPlan(
                 input,
                 callableFunction,
-                matchedTopLevelFunction
-                    ? undefined
-                    : extractSelectionFromText(
-                          documentText,
-                          selectionStartOffset,
-                          selectionEndOffset,
-                      ),
+                matchedTopLevelFunction ? undefined : targetSource,
             ),
         }
     }
@@ -149,21 +148,26 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         findEnclosingMethod(documentText, selectionEndOffset) ??
         findEnclosingFunction(documentText, selectionEndOffset)
     if (enclosingCallable) {
+        const bodyStart = findCallableBodyStart(
+            documentText,
+            enclosingCallable.start,
+            enclosingCallable.end,
+        )
         const sourceCode = buildCallableScopedEvalSource(
             documentText,
             enclosingCallable.start,
             enclosingCallable.end,
             selectionStartOffset,
-            extractSelectionFromText(
-                documentText,
-                selectionStartOffset,
-                selectionEndOffset,
-            ),
+            targetSource,
         )
 
         return {
             ok: true,
             plan: {
+                displaySourceCode: documentText.slice(
+                    bodyStart,
+                    selectionEndOffset,
+                ),
                 mode: 'selection',
                 smartCapture: true,
                 sourceCode,
@@ -177,17 +181,14 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
     const sourceCode = buildTopLevelEvalSource(
         documentText,
         selectionStartOffset,
-        extractSelectionFromText(
-            documentText,
-            selectionStartOffset,
-            selectionEndOffset,
-        ),
+        targetSource,
     )
     assertCompleteEvalBoundary(sourceCode)
 
     return {
         ok: true,
         plan: {
+            displaySourceCode: documentText.slice(0, selectionEndOffset),
             mode: 'selection',
             smartCapture: true,
             sourceCode,
@@ -200,6 +201,7 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
 
 function planFileRun(input: PlanRunInput): EvalRunPlan {
     return {
+        displaySourceCode: input.documentText,
         mode: 'file',
         smartCapture: true,
         sourceCode: extractFileFromText(input.documentText),
@@ -221,7 +223,13 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
         findEnclosingFunction(documentText, selectionActiveOffset)
 
     if (enclosingCallable) {
+        const bodyStart = findCallableBodyStart(
+            documentText,
+            enclosingCallable.start,
+            enclosingCallable.end,
+        )
         return {
+            displaySourceCode: documentText.slice(bodyStart, lineEnd),
             mode: 'line',
             smartCapture: true,
             sourceCode: buildCallableScopedEvalSource(
@@ -238,6 +246,7 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
     }
 
     return {
+        displaySourceCode: documentText.slice(0, lineEnd),
         mode: 'line',
         smartCapture: true,
         sourceCode: buildTopLevelEvalSource(
@@ -285,6 +294,10 @@ function createMethodPlan(
     method: MethodInfo,
 ): MethodRunPlan {
     return {
+        displaySourceCode: input.documentText.slice(
+            method.start,
+            method.end + 1,
+        ),
         method,
         mode: 'method',
         sourceCode: input.documentText.slice(method.start, method.end + 1),
@@ -302,6 +315,10 @@ function createFunctionPlan(
 ): FunctionRunPlan {
     return {
         callableFunction,
+        displaySourceCode: input.documentText.slice(
+            callableFunction.start,
+            callableFunction.end + 1,
+        ),
         functionDeclarationSource,
         mode: 'function',
         sourceCode: input.documentText.slice(
@@ -415,6 +432,41 @@ function buildTopLevelEvalSource(
     return leadingStatements.length > 0
         ? [...leadingStatements, normalizedTarget].join('\n')
         : normalizedTarget
+}
+
+function resolveSelectionTargetSource(
+    text: string,
+    selectionStartOffset: number,
+    selectionEndOffset: number,
+): string {
+    const selectedSource = extractSelectionFromText(
+        text,
+        selectionStartOffset,
+        selectionEndOffset,
+    )
+    const selectedVariable = selectedSource.trim()
+
+    if (
+        !/^\$[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*$/u.test(selectedVariable)
+    ) {
+        return selectedSource
+    }
+
+    const lineNumber = lineNumberAtOffset(text, selectionStartOffset)
+    const lineSource = text.slice(
+        lineStartOffset(text, lineNumber),
+        lineEndOffset(text, lineNumber),
+    )
+    const valueExpression = extractTopLevelValueExpression(lineSource)
+
+    if (
+        valueExpression?.startsWith(`${selectedVariable} =`) &&
+        isCompleteStatement(valueExpression)
+    ) {
+        return valueExpression
+    }
+
+    return selectedSource
 }
 
 function findCallableBodyStart(
@@ -586,20 +638,56 @@ function extractTrailingArrayEntryStatements(source: string): string[] {
         .map(line => line.trim())
         .filter(Boolean)
         .filter(line => !/^(?:return\s+)?\[|^[\])](?:[;,])?$/u.test(line))
-        .map(line => {
-            const valueExpression = extractTopLevelValueExpression(line)
-            if (valueExpression) {
-                return ensureStatement(valueExpression)
-            }
-
-            return undefined
-        })
+        .map(normalizeTrailingArrayEntryStatement)
         .filter((value): value is string => Boolean(value))
+}
+
+function normalizeTrailingArrayEntryStatement(
+    source: string,
+): string | undefined {
+    const valueExpression = extractTopLevelValueExpression(source)
+    if (!valueExpression) {
+        return undefined
+    }
+
+    return isCompleteStatement(valueExpression)
+        ? ensureStatement(valueExpression)
+        : undefined
 }
 
 function ensureStatement(source: string): string {
     const trimmed = source.trim()
     return /;\s*$/u.test(trimmed) ? trimmed : `${trimmed};`
+}
+
+function isCompleteStatement(source: string): boolean {
+    if (looksObviouslyIncomplete(source)) {
+        return false
+    }
+
+    try {
+        prepareEvalSource(source, true)
+        return true
+    } catch (error) {
+        if (
+            error instanceof Error &&
+            error.message === INCOMPLETE_SNIPPET_ERROR
+        ) {
+            return false
+        }
+
+        throw error
+    }
+}
+
+function looksObviouslyIncomplete(source: string): boolean {
+    const trimmed = source.trim()
+
+    return (
+        /(?:=>|=)\s*$/u.test(trimmed) ||
+        /(?:\(|\[|\{)\s*$/u.test(trimmed) ||
+        /(?:,|::|->)\s*$/u.test(trimmed)
+    )
 }
 
 function extractTopLevelValueExpression(source: string): string | undefined {

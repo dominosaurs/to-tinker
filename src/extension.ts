@@ -137,6 +137,7 @@ async function runRequest(runRequest: RunRequest): Promise<void> {
 
         const executionRequest = {
             callableFunction: prepared.callableFunction,
+            displaySourceCode: prepared.plan.displaySourceCode,
             filePath: document.uri.fsPath,
             method: prepared.method,
             mode: prepared.plan.mode,

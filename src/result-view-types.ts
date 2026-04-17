@@ -10,6 +10,7 @@ export interface RunSummary {
     phpExecutable?: string
     sandboxEnabled: boolean
     sourceCode?: string
+    displaySourceCode?: string
     sourceLineStart?: number
     sourceLineEnd?: number
     className?: string

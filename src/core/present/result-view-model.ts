@@ -43,7 +43,7 @@ export function buildResultViewModel(
         sandboxLabel,
         sandboxTone: summary.sandboxEnabled ? 'muted' : 'alert',
         sourceLineStart: summary.sourceLineStart,
-        sourceText: summary.sourceCode,
+        sourceText: summary.displaySourceCode ?? summary.sourceCode,
         statusClassName: `status-${report.status === 'success' ? 'success' : report.status}`,
         statusLabel: report.status === 'success' ? 'success' : report.status,
         targetLabel: buildTargetLabel(summary),
