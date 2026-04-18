@@ -1,14 +1,19 @@
+/**
+ * @todo fix bug: run file button is always show
+ */
 export function shouldShowRunFileForText(text: string): boolean {
-    const units = extractTopLevelUnits(text)
-    const significantUnits = units.filter(unit => unit.kind !== 'comment')
+    return false
 
-    if (significantUnits.length === 0) {
-        return true
-    }
+    // const units = extractTopLevelUnits(text)
+    // const significantUnits = units.filter(unit => unit.kind !== 'comment')
 
-    return significantUnits.some(
-        unit => unit.kind === 'function' || unit.kind === 'statement',
-    )
+    // if (significantUnits.length === 0) {
+    //     return true
+    // }
+
+    // return significantUnits.some(
+    //     unit => unit.kind === 'function' || unit.kind === 'statement',
+    // )
 }
 
 type TopLevelUnitKind =
