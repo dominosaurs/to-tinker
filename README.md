@@ -4,6 +4,8 @@ Run any PHP or Laravel code in one click from VS Code ⚡
 
 To Tinker is a VS Code extension for Laravel and PHP developers who want to run real application code without opening a terminal, starting Tinker manually, or creating temporary routes, commands, and tests just to inspect a value.
 
+<img width="640" style="max-width: 100%;" height="auto" alt="To Tinker Preview" src="https://github.com/user-attachments/assets/7b19fa72-5d01-4dcf-9c4e-641fefba9cfb" />
+
 It runs through `php artisan tinker`, stays inside your Laravel app context, and lets you execute selections, files, methods, and functions directly from the editor.
 
 ## ✨ Features
