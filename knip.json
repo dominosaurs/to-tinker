@@ -1,0 +1,10 @@
+{
+    "$schema": "https://unpkg.com/knip@latest/schema.json",
+    "entry": [
+        "src/extension.ts",
+        "vite.config.ts",
+        "vite.result-view.config.ts",
+        "vitest.config.ts"
+    ],
+    "project": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
+}

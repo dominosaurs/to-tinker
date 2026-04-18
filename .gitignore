@@ -1,6 +1,11 @@
 .DS_Store
 .agents
 .codex
+dev
 node_modules
-out
+dist
 *.vsix
+
+# mempalace
+entities.json
+mempalace.yaml

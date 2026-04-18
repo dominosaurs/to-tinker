@@ -1,0 +1,31 @@
+{
+    "$schema": "vscode://schemas/launch",
+    "configurations": [
+        {
+            "args": [
+                "${workspaceFolder}/../to-tinker-preview",
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "--disable-extensions"
+            ],
+            "name": "Extension Host",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "preLaunchTask": "build extension",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "type": "extensionHost"
+        },
+        {
+            "args": [
+                "${workspaceFolder}/../to-tinker-preview",
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "--disable-extensions"
+            ],
+            "name": "Extension Host (No Build)",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "type": "extensionHost"
+        }
+    ],
+    "version": "0.2.0"
+}

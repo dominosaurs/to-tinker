@@ -3,8 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as vscode from 'vscode'
-import { resolveLaravelWorkspace } from '../src/workspace'
-import { createTextDocument } from './helpers'
+import { resolveLaravelWorkspace } from '../../src/workspace'
+import { createTextDocument } from '../helpers'
 
 describe('resolveLaravelWorkspace', () => {
     const tempRoots: string[] = []

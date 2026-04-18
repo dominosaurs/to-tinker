@@ -15,5 +15,11 @@
         "target": "ES2022",
         "types": ["node", "vscode", "vitest/globals"]
     },
-    "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "vite.config.ts"]
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        "vite.config.ts",
+        "vitest.config.ts"
+    ]
 }

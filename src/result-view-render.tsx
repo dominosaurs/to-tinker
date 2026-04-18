@@ -1,96 +1,95 @@
-import * as path from 'node:path'
-import {
-    createBundledHighlighter,
-    createSingletonShorthands,
-} from '@shikijs/core'
-import jsonLanguage from '@shikijs/langs/json'
-import phpLanguage from '@shikijs/langs/php'
-import githubDarkTheme from '@shikijs/themes/github-dark'
-import githubLightTheme from '@shikijs/themes/github-light'
 import type { ComponentChildren, JSX } from 'preact'
 import renderToString from 'preact-render-to-string'
-import type { ThemedTokenWithVariants } from 'shiki'
-import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
-import type { RunReport } from './result-view-types'
+import { COMMANDS } from './commands'
+import { buildResultViewModel } from './core/present/result-view-model'
+import type {
+    HighlightLanguage,
+    HighlightLine,
+    HighlightToken,
+} from './result-view-highlighter'
+import type { AppInfo, RunReport } from './result-view-types'
 
-const shiki = createSingletonShorthands(
-    createBundledHighlighter({
-        engine: createJavaScriptRegexEngine,
-        langs: {
-            json: async () => jsonLanguage,
-            php: async () => phpLanguage,
-        },
-        themes: {
-            dark: async () => githubDarkTheme,
-            light: async () => githubLightTheme,
-        },
-    }),
-)
+let resultViewHighlighterModulePromise:
+    | Promise<typeof import('./result-view-highlighter')>
+    | undefined
 
-type HighlightLanguage = 'json' | 'php' | 'text'
+function loadResultViewHighlighterModule(): Promise<
+    typeof import('./result-view-highlighter')
+> {
+    if (!resultViewHighlighterModulePromise) {
+        resultViewHighlighterModulePromise = import('./result-view-highlighter')
+    }
 
-interface HighlightToken {
-    content: string
-    darkColor?: string
-    lightColor?: string
-    bold?: boolean
-    italic?: boolean
-    strike?: boolean
-    underline?: boolean
-}
-
-interface HighlightLine {
-    tokens: HighlightToken[]
+    return resultViewHighlighterModulePromise
 }
 
 interface ViewModel {
+    appLabel: string
     elapsed?: string
     error?: string
     fileLabel: string
-    kind: string
+    mode: string
+    modeLabel: string
     notice?: string
+    outputDocUrl?: string
+    outputLocalFile?: string
     output?: HighlightLine[]
+    outputTypeLabel?: string
     sandboxLabel: string
+    sandboxTone: 'alert' | 'muted'
     source?: HighlightLine[]
     sourceLineStart?: number
+    statusClassName: string
     statusLabel: string
     targetLabel: string
+    title: string
 }
 
-export async function renderResultView(report: RunReport): Promise<string> {
-    const view = await toViewModel(report)
+export async function renderResultView(
+    report: RunReport,
+    appInfo: AppInfo = {
+        name: 'To Tinker',
+        version: 'dev',
+    },
+): Promise<string> {
+    const view = await toViewModel(report, appInfo)
 
     return `<!DOCTYPE html>${renderToString(<Document view={view} />)}`
 }
 
-async function toViewModel(report: RunReport): Promise<ViewModel> {
-    const { summary } = report
-    const diagnostics = [report.diagnostics?.trim(), report.stderr?.trim()]
-        .filter(Boolean)
-        .join('\n')
+async function toViewModel(
+    report: RunReport,
+    appInfo: AppInfo,
+): Promise<ViewModel> {
+    const model = buildResultViewModel(report, appInfo)
 
     return {
-        elapsed: extractElapsed(diagnostics),
-        error: report.error,
-        fileLabel: `${shortPath(summary.filePath, summary.rootPath)}${formatLineRange(summary.sourceLineStart, summary.sourceLineEnd)}`,
-        kind: summary.kind,
-        notice: stripElapsed(diagnostics) || undefined,
-        output: report.result
+        appLabel: model.appLabel,
+        elapsed: model.elapsed,
+        error: model.error,
+        fileLabel: model.fileLabel,
+        mode: model.mode,
+        modeLabel: model.modeLabel,
+        notice: model.notice,
+        output: model.outputText
             ? await highlightLines(
-                  report.result,
-                  detectLanguage(summary.kind, report.result, false),
+                  model.outputText,
+                  detectLanguage(model.mode, model.outputText, false),
               )
             : undefined,
-        sandboxLabel: summary.sandboxEnabled ? 'sandbox' : 'no sandbox',
-        source: summary.sourceCode
-            ? await highlightLines(summary.sourceCode, 'php')
+        outputDocUrl: model.outputDocUrl,
+        outputLocalFile: model.outputLocalFile,
+        outputTypeLabel: model.outputTypeLabel,
+        sandboxLabel: model.sandboxLabel,
+        sandboxTone: model.sandboxTone,
+        source: model.sourceText
+            ? await highlightLines(model.sourceText, 'php')
             : undefined,
-        sourceLineStart: summary.sourceLineStart,
-        statusLabel: report.status === 'success' ? 'success' : report.status,
-        targetLabel:
-            summary.kind === 'method' && summary.methodName
-                ? `${summary.className ?? '?'}::${summary.methodName}`
-                : path.basename(summary.filePath),
+        sourceLineStart: model.sourceLineStart,
+        statusClassName: model.statusClassName,
+        statusLabel: model.statusLabel,
+        targetLabel: model.targetLabel,
+        title: model.title,
     }
 }
 
@@ -103,18 +102,11 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
                     content="width=device-width, initial-scale=1.0"
                     name="viewport"
                 />
-                <title>To Tinker</title>
+                <title>{view.title}</title>
                 <style>{styles()}</style>
             </head>
             <body>
                 <Header view={view} />
-                {view.output ? (
-                    <Section title="Output">
-                        <div class="block result">
-                            <HighlightedPre lines={view.output} />
-                        </div>
-                    </Section>
-                ) : null}
                 {view.source ? (
                     <details>
                         <summary>Source</summary>
@@ -126,12 +118,19 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
                         </div>
                     </details>
                 ) : null}
-                {view.error ? (
-                    <Section title="Error">
-                        <div class="block">
-                            <pre>{view.error}</pre>
+
+                {view.output ? (
+                    <Section title={<OutputTitle view={view} />}>
+                        <div class="block result">
+                            <HighlightedPre lines={view.output} />
                         </div>
                     </Section>
+                ) : null}
+
+                {view.error ? (
+                    <div class="notice notice-error">
+                        <pre>{view.error}</pre>
+                    </div>
                 ) : null}
                 {view.notice ? <div class="notice">{view.notice}</div> : null}
             </body>
@@ -142,36 +141,35 @@ function Document({ view }: { view: ViewModel }): JSX.Element {
 function Header({ view }: { view: ViewModel }): JSX.Element {
     return (
         <div class="top">
+            <div class="app-line">{view.appLabel}</div>
             <div class="status-line">
-                <span class="sandbox">({view.sandboxLabel})</span>
-                <span class={`status-${view.statusLabel}`}>
-                    {view.statusLabel}
-                </span>
+                <span class={view.statusClassName}>{view.statusLabel}</span>
                 {view.elapsed ? (
                     <span class="elapsed">{view.elapsed}</span>
                 ) : null}
+                <span class={`chip chip-${view.sandboxTone}`}>
+                    {view.sandboxLabel}
+                </span>
             </div>
-            <KindTabs activeKind={view.kind} />
-            <div class="file">{view.fileLabel}</div>
-            <div class="target">{view.targetLabel}</div>
-        </div>
-    )
-}
-
-function KindTabs({ activeKind }: { activeKind: string }): JSX.Element {
-    const kinds = ['file', 'method', 'selection']
-
-    return (
-        <>
-            {kinds.map((kind, index) => (
-                <SpanGroup key={kind}>
-                    {index > 0 ? <span class="kind"> | </span> : null}
-                    <span class={kind === activeKind ? 'kind-active' : 'kind'}>
-                        {capitalize(kind)}
+            <div class="meta-stack">
+                <div class="meta-row">
+                    <span class="meta-label">Mode</span>
+                    <span class="meta-value meta-value-mode">
+                        {view.modeLabel}
                     </span>
-                </SpanGroup>
-            ))}
-        </>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">File</span>
+                    <span class="meta-value">{view.fileLabel}</span>
+                </div>
+                {view.mode === 'method' || view.mode === 'function' ? (
+                    <div class="meta-row">
+                        <span class="meta-label">Target</span>
+                        <span class="meta-value">{view.targetLabel}</span>
+                    </div>
+                ) : null}
+            </div>
+        </div>
     )
 }
 
@@ -180,13 +178,37 @@ function Section({
     title,
 }: {
     children: ComponentChildren
-    title: string
+    title: ComponentChildren
 }): JSX.Element {
     return (
         <>
-            <h2>{title}</h2>
+            <h2 class="section-title">{title}</h2>
             {children}
         </>
+    )
+}
+
+function OutputTitle({ view }: { view: ViewModel }): JSX.Element {
+    return (
+        <span class="section-title-inner">
+            <span>Output</span>
+            {view.outputTypeLabel ? <OutputTypeLink view={view} /> : null}
+        </span>
+    )
+}
+
+function OutputTypeLink({ view }: { view: ViewModel }): JSX.Element {
+    const label = view.outputTypeLabel ?? ''
+    const href = buildOutputTypeHref(view)
+
+    if (!href) {
+        return <span class="output-type-label">{label}</span>
+    }
+
+    return (
+        <a class="output-link output-type-label" href={href}>
+            {label}
+        </a>
     )
 }
 
@@ -242,80 +264,56 @@ function SpanGroup({ children }: { children: ComponentChildren }): JSX.Element {
     return <>{children}</>
 }
 
+function buildOutputTypeHref(view: ViewModel): string | undefined {
+    if (view.outputLocalFile) {
+        return createCommandHref({
+            kind: 'local',
+            value: view.outputLocalFile,
+        })
+    }
+
+    if (view.outputDocUrl) {
+        return createCommandHref({
+            kind: 'external',
+            value: view.outputDocUrl,
+        })
+    }
+
+    return undefined
+}
+
+function createCommandHref(payload: {
+    kind: 'external' | 'local'
+    value: string
+}): string {
+    return `command:${COMMANDS.openResultTypeLink}?${encodeURIComponent(
+        JSON.stringify([payload]),
+    )}`
+}
+
 async function highlightLines(
     value: string,
     language: HighlightLanguage,
 ): Promise<HighlightLine[]> {
-    if (!value) {
-        return [{ tokens: [createPlainToken(' ')] }]
-    }
-
-    if (language === 'text') {
-        return value.split('\n').map(line => ({
-            tokens: [createPlainToken(line || ' ')],
-        }))
-    }
-
-    try {
-        const lines = await shiki.codeToTokensWithThemes(value, {
-            grammarContextCode: language === 'php' ? '<?php\n' : undefined,
-            lang: language,
-            themes: {
-                dark: githubDarkTheme,
-                light: githubLightTheme,
-            },
-        })
-
-        return lines.length > 0
-            ? lines.map(line => ({
-                  tokens:
-                      line.length > 0
-                          ? line.map(mapToken)
-                          : [createPlainToken(' ')],
-              }))
-            : [{ tokens: [createPlainToken(' ')] }]
-    } catch {
-        return value.split('\n').map(line => ({
-            tokens: [createPlainToken(line || ' ')],
-        }))
-    }
-}
-
-function mapToken(token: ThemedTokenWithVariants): HighlightToken {
-    const light = token.variants.light ?? {}
-    const dark = token.variants.dark ?? {}
-    const fontStyle = light.fontStyle ?? dark.fontStyle ?? 0
-
-    return {
-        bold: Boolean(fontStyle & 2),
-        content: token.content,
-        darkColor: dark.color ?? light.color,
-        italic: Boolean(fontStyle & 1),
-        lightColor: light.color ?? dark.color,
-        strike: Boolean(fontStyle & 8),
-        underline: Boolean(fontStyle & 4),
-    }
-}
-
-function createPlainToken(content: string): HighlightToken {
-    return { content }
+    const { highlightCodeLines } = await loadResultViewHighlighterModule()
+    return highlightCodeLines(value, language)
 }
 
 function styles(): string {
     return `
         :root {
             color-scheme: light dark;
-            --bg: var(--vscode-editor-background);
-            --fg: var(--vscode-editor-foreground);
-            --muted: var(--vscode-descriptionForeground);
-            --border: var(--vscode-panel-border);
+            --bg: var(--vscode-editor-background, #111827);
+            --fg: var(--vscode-editor-foreground, #e5e7eb);
+            --muted: var(--vscode-descriptionForeground, #94a3b8);
+            --border: var(--vscode-panel-border, #334155);
             --ok: #2f9e44;
             --error: #e03131;
             --info: #4dabf7;
             --notice: #f08c00;
             --run: #f08c00;
             --timeout: #c77dff;
-            --code-bg: var(--vscode-textCodeBlock-background);
+            --code-bg: var(--vscode-textCodeBlock-background, #1f2937);
         }
         * { box-sizing: border-box; }
         body {
@@ -323,7 +321,7 @@ function styles(): string {
             padding: 24px;
             background: var(--bg);
             color: var(--fg);
-            font: 14px/1.5 var(--vscode-font-family);
+            font: 14px/1.5 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
         }
         h2 {
             margin: 20px 0 10px;
@@ -332,28 +330,128 @@ function styles(): string {
             letter-spacing: 0.08em;
             color: var(--muted);
         }
+        .section-title {
+            display: block;
+        }
+        .section-title-inner {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 16px;
+        }
         .top { margin-bottom: 18px; }
+        .app-line {
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
         .status-line {
             display: flex;
             gap: 10px;
             align-items: center;
             flex-wrap: wrap;
-            margin-bottom: 4px;
+            margin-bottom: 10px;
         }
-        .sandbox, .elapsed, .file, .target {
+        .elapsed {
             color: var(--muted);
             font-size: 12px;
         }
-        .status-success { color: var(--ok); font-weight: 700; }
-        .status-error { color: var(--error); font-weight: 700; }
-        .status-running { color: var(--run); font-weight: 700; }
-        .status-timeout { color: var(--timeout); font-weight: 700; }
-        .kind { color: var(--muted); }
-        .kind-active { color: var(--info); font-weight: 700; }
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .chip-muted {
+            color: var(--muted);
+            border-color: color-mix(in srgb, var(--border) 55%, transparent 45%);
+            background: transparent;
+            opacity: 0.72;
+        }
+        .chip-alert {
+            color: #ffd8a8;
+            border-color: color-mix(in srgb, var(--notice) 55%, var(--border) 45%);
+            background: color-mix(in srgb, var(--notice) 18%, var(--code-bg) 82%);
+            opacity: 1;
+        }
+        .status-success { color: var(--ok); font-weight: 400; }
+        .status-error { color: var(--error); font-weight: 400; }
+        .status-running { color: var(--run); font-weight: 400; }
+        .status-timeout { color: var(--timeout); font-weight: 400; }
+        .status-success,
+        .status-error,
+        .status-running,
+        .status-timeout {
+            font-size: 15px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .meta-stack {
+            display: grid;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        .meta-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: baseline;
+        }
+        .meta-label {
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            min-width: 88px;
+        }
+        .meta-value {
+            font-size: 13px;
+            word-break: break-word;
+        }
+        .meta-value-mode {
+            color: var(--info);
+            font-weight: 700;
+        }
+        .output-link {
+            color: inherit;
+            font-weight: 400;
+            letter-spacing: inherit;
+            text-transform: none;
+            text-decoration: none;
+        }
+        .output-type-label {
+            text-transform: none;
+            letter-spacing: normal;
+            font-weight: 400;
+        }
+        .output-link:hover {
+            text-decoration: underline;
+        }
         .notice {
             margin-top: 18px;
             color: var(--notice);
             font-size: 12px;
+            border: 1px solid color-mix(in srgb, var(--notice) 40%, var(--border) 60%);
+            border-radius: 10px;
+            padding: 12px 14px;
+            background: color-mix(in srgb, var(--code-bg) 78%, transparent 22%);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .notice pre {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            color: inherit;
+            font: 13px/1.45 var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
+        }
+        .notice-error {
+            color: var(--error);
+            border-color: color-mix(in srgb, var(--error) 45%, var(--border) 55%);
         }
         .block {
             overflow: auto;
@@ -364,7 +462,7 @@ function styles(): string {
         pre {
             margin: 0;
             padding: 14px 16px;
-            font: 13px/1.45 var(--vscode-editor-font-family);
+            font: 13px/1.45 var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
             white-space: pre-wrap;
             word-break: break-word;
             tab-size: 4;
@@ -377,7 +475,7 @@ function styles(): string {
             margin-bottom: 10px;
         }
         .code-lines {
-            font: 13px/1.45 var(--vscode-editor-font-family);
+            font: 13px/1.45 var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, monospace);
             tab-size: 4;
         }
         .line {
@@ -439,39 +537,12 @@ function renderTokenHtml(token: HighlightToken): string {
     return `<span ${attrs.join(' ')}>${escapeHtml(token.content)}</span>`
 }
 
-function shortPath(filePath: string, rootPath: string): string {
-    return filePath.startsWith(rootPath)
-        ? filePath.slice(rootPath.length + 1)
-        : filePath
-}
-
-function extractElapsed(value: string): string | undefined {
-    const match = value.match(/elapsed_ms=(\d+)/)
-    return match ? `${match[1]} ms` : undefined
-}
-
-function stripElapsed(value: string): string {
-    return value.replace(/(^|\n)elapsed_ms=\d+(\n|$)/g, '\n').trim()
-}
-
-function formatLineRange(start?: number, end?: number): string {
-    if (!start) {
-        return ''
-    }
-
-    if (!end || end === start) {
-        return `:${start}`
-    }
-
-    return `:${start}-${end}`
-}
-
-function detectLanguage(
-    kind: string,
+export function detectLanguage(
+    mode: string,
     value: string,
     isSource: boolean,
 ): HighlightLanguage {
-    if (isSource || kind === 'method') {
+    if (isSource || mode === 'method') {
         return 'php'
     }
 
@@ -483,11 +554,33 @@ function detectLanguage(
         return 'json'
     }
 
+    if (looksLikeDumpOutput(trimmed)) {
+        return 'php'
+    }
+
+    if (looksLikePhpLiteralOutput(trimmed)) {
+        return 'php'
+    }
+
     return 'text'
 }
 
-function capitalize(value: string): string {
-    return value.charAt(0).toUpperCase() + value.slice(1)
+function looksLikeDumpOutput(value: string): boolean {
+    return (
+        /(?:^|\n)[A-Z_a-z\\][\w\\]*\s*\{#\d+/u.test(value) ||
+        /(?:^|\n)\s*[+#?]?[A-Za-z_][\w-]*:\s+[A-Z_a-z\\][\w\\]*\s*\{#\d+/u.test(
+            value,
+        ) ||
+        /(?:^|\n)\s*[+#?]?[A-Za-z_][\w-]*:\s+/u.test(value)
+    )
+}
+
+function looksLikePhpLiteralOutput(value: string): boolean {
+    return (
+        /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) ||
+        /^(?:true|false|null|NULL)$/u.test(value) ||
+        /^(["']).*\1$/su.test(value)
+    )
 }
 
 function escapeHtml(value: string): string {

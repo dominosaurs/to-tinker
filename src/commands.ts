@@ -1,15 +1,12 @@
 export const COMMANDS = {
+    openResultTypeLink: 'toTinker.openResultTypeLink',
+    resetDisclaimer: 'toTinker.resetDisclaimer',
+    runDefault: 'toTinker.runDefault',
     runFile: 'toTinker.runFile',
-    runFileDisableSandbox: 'toTinker.runFileDisableSandbox',
-    runMethod: 'toTinker.runMethod',
+    runFunctionAt: 'toTinker.runFunctionAt',
     runMethodAt: 'toTinker.runMethodAt',
-    runMethodDisableSandbox: 'toTinker.runMethodDisableSandbox',
-    runPrimary: 'toTinker.runPrimary',
-    runSelection: 'toTinker.runSelection',
-    runSelectionDisableSandbox: 'toTinker.runSelectionDisableSandbox',
     showLogs: 'toTinker.showLogs',
+    toggleSandbox: 'toTinker.toggleSandbox',
 } as const
 
-export type CommandName = keyof typeof COMMANDS
-
-export type RunKind = 'selection' | 'file' | 'method'
+export type RunMode = 'selection' | 'file' | 'line' | 'method' | 'function'

@@ -1,16 +1,7 @@
 {
     "$schema": "https://json.schemastore.org/package.json",
     "activationEvents": [
-        "onLanguage:php",
-        "onCommand:toTinker.runPrimary",
-        "onCommand:toTinker.runSelection",
-        "onCommand:toTinker.runSelectionDisableSandbox",
-        "onCommand:toTinker.runFile",
-        "onCommand:toTinker.runFileDisableSandbox",
-        "onCommand:toTinker.runMethod",
-        "onCommand:toTinker.runMethodDisableSandbox",
-        "onCommand:toTinker.runMethodAt",
-        "onCommand:toTinker.showLogs"
+        "onLanguage:php"
     ],
     "author": {
         "name": "dominosaurs",
@@ -20,7 +11,7 @@
         "url": "https://github.com/dominosaurs/to-tinker/issues"
     },
     "categories": [
-        "Other"
+        "Programming Languages"
     ],
     "contributes": {
         "commands": [
@@ -31,58 +22,37 @@
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runPrimary",
+                "command": "toTinker.runDefault",
                 "enablement": "editorLangId == php",
                 "icon": {
-                    "dark": "assets/images/icon.jpg",
-                    "light": "assets/images/icon.jpg"
+                    "dark": "assets/images/icon32.png",
+                    "light": "assets/images/icon32.png"
                 },
                 "title": "To Tinker: Run"
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runSelection",
-                "enablement": "editorLangId == php",
-                "title": "To Tinker"
-            },
-            {
-                "category": "To Tinker",
-                "command": "toTinker.runSelectionDisableSandbox",
-                "enablement": "editorLangId == php",
-                "title": "To Tinker (Disable Sandbox)"
-            },
-            {
-                "category": "To Tinker",
                 "command": "toTinker.runFile",
                 "enablement": "editorLangId == php",
-                "title": "Run File"
+                "icon": {
+                    "dark": "assets/images/file-icon32.png",
+                    "light": "assets/images/file-icon32.png"
+                },
+                "title": "To Tinker: File"
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runFileDisableSandbox",
-                "enablement": "editorLangId == php",
-                "title": "Run File (Disable Sandbox)"
+                "command": "toTinker.toggleSandbox",
+                "title": "Toggle Dry Run Mode"
             },
             {
                 "category": "To Tinker",
-                "command": "toTinker.runMethod",
-                "enablement": "editorLangId == php",
-                "title": "Run Method"
-            },
-            {
-                "category": "To Tinker",
-                "command": "toTinker.runMethodDisableSandbox",
-                "enablement": "editorLangId == php",
-                "title": "Run Method (Disable Sandbox)"
+                "command": "toTinker.resetDisclaimer",
+                "title": "Reset Dry Run Disclaimer"
             }
         ],
         "configuration": {
             "properties": {
-                "toTinker.clearOutputOnRun": {
-                    "default": true,
-                    "description": "Clear the To Tinker output channel before each run.",
-                    "type": "boolean"
-                },
                 "toTinker.codeLens.enabled": {
                     "default": true,
                     "description": "Show To Tinker CodeLens above supported PHP methods.",
@@ -95,12 +65,12 @@
                 },
                 "toTinker.sandbox.defaultEnabled": {
                     "default": true,
-                    "description": "Enable the partial sandbox by default.",
+                    "description": "Enable experimental Dry Run mode by default. (Best-effort side-effect prevention)",
                     "type": "boolean"
                 },
                 "toTinker.sandbox.fakeStorage": {
                     "default": false,
-                    "description": "Also fake Laravel storage disks inside sandboxed runs.",
+                    "description": "Also fake Laravel storage disks inside Dry Run mode.",
                     "type": "boolean"
                 },
                 "toTinker.timeoutSeconds": {
@@ -114,88 +84,60 @@
         },
         "keybindings": [
             {
-                "command": "toTinker.runPrimary",
+                "command": "toTinker.runDefault",
                 "key": "ctrl+r",
                 "mac": "cmd+r",
                 "when": "editorTextFocus && editorLangId == php"
             }
         ],
         "menus": {
-            "commandPalette": [
+            "editor/title": [
                 {
-                    "command": "toTinker.runSelection",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runSelectionDisableSandbox",
-                    "when": "false"
+                    "command": "toTinker.runDefault",
+                    "group": "navigation",
+                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
                 },
                 {
                     "command": "toTinker.runFile",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runFileDisableSandbox",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runMethod",
-                    "when": "false"
-                },
-                {
-                    "command": "toTinker.runMethodDisableSandbox",
-                    "when": "false"
-                }
-            ],
-            "editor/context": [
-                {
-                    "command": "toTinker.runSelection",
-                    "group": "navigation@10",
-                    "when": "editorLangId == php && editorHasSelection"
-                },
-                {
-                    "command": "toTinker.runSelectionDisableSandbox",
-                    "group": "navigation@11",
-                    "when": "editorLangId == php && editorHasSelection"
-                }
-            ],
-            "editor/title": [
-                {
-                    "command": "toTinker.runPrimary",
-                    "group": "navigation",
-                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor"
+                    "group": "navigation@1",
+                    "when": "editorLangId == php && !editorReadonly && !inDiffEditor && toTinker.showRunFile"
                 }
             ]
         }
     },
-    "description": "Run Laravel Tinker selections, files, and methods in VS Code through php artisan tinker.",
+    "description": "Run any PHP or Laravel code in one click from VS Code ⚡",
     "devDependencies": {
         "@biomejs/biome": "2.4.12",
-        "@types/node": "^24.6.0",
-        "@types/vscode": "^1.99.0",
-        "@vscode/test-electron": "^2.5.2",
-        "@vscode/vsce": "^3.6.2",
+        "@shikijs/core": "^4.0.2",
+        "@shikijs/engine-javascript": "^4.0.2",
+        "@shikijs/langs": "^4.0.2",
+        "@shikijs/themes": "^4.0.2",
+        "@shikijs/types": "^4.0.2",
+        "@types/node": "^24.12.2",
+        "@types/vscode": "^1.116.0",
+        "@vscode/vsce": "^3.9.1",
+        "knip": "^6.4.1",
         "preact": "^10.29.1",
         "preact-render-to-string": "^6.6.7",
-        "shiki": "^4.0.2",
-        "typescript": "^5.9.3",
-        "vite": "^7.1.10",
-        "vite-plugin-static-copy": "^3.1.4",
-        "vitest": "^3.2.4"
+        "typescript": "^6.0.3",
+        "vite": "^8.0.8",
+        "vitest": "^4.1.4"
     },
     "displayName": "To Tinker",
     "engines": {
-        "vscode": "^1.99.0"
+        "vscode": "^1.116.0"
     },
     "files": [
-        "assets/images/icon.jpg",
-        "out/**",
+        "assets/images/icon256.png",
+        "assets/images/icon32.png",
+        "assets/images/file-icon32.png",
+        "dist/**",
         "LICENSE",
         "package.json",
         "README.md"
     ],
     "homepage": "https://github.com/dominosaurs/to-tinker#readme",
-    "icon": "assets/images/icon.jpg",
+    "icon": "assets/images/icon256.png",
     "keywords": [
         "laravel",
         "laravel tinker",
@@ -211,7 +153,7 @@
         "debugging"
     ],
     "license": "MIT",
-    "main": "./out/extension.js",
+    "main": "./dist/extension.js",
     "name": "to-tinker",
     "preview": true,
     "publisher": "dominosaurs",
@@ -221,10 +163,13 @@
     },
     "scripts": {
         "build": "vite build",
-        "lint": "biome check --write && tsc --noEmit",
+        "build:result-view": "vite build --config vite.result-view.config.ts",
+        "dev:result-view": "vite --config vite.result-view.config.ts",
+        "knip": "knip --reporter compact",
+        "lint": "knip --reporter compact && biome check --write && tsc --noEmit",
         "package": "vsce package --no-dependencies --allow-missing-repository",
         "prepackage": "bun run build",
         "test": "vitest run"
     },
-    "version": "0.1.0"
+    "version": "0.1.1"
 }
