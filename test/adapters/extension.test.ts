@@ -106,7 +106,7 @@ describe('extension orchestration', () => {
 
         expect(setSandboxDefaultEnabled).toHaveBeenCalledWith(false)
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-            'To Tinker sandbox disabled.',
+            'To Tinker Dry Run mode disabled.',
         )
     })
 })

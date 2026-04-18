@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 
 interface SandboxConfig {
+    // TODO: Rename to DryRunConfig in next major version
     defaultEnabled: boolean
     fakeStorage: boolean
 }
@@ -9,6 +10,7 @@ interface ExtensionConfig {
     phpPath: string | undefined
     timeoutSeconds: number
     codeLensEnabled: boolean
+    // TODO: Rename to dryRun in next major version
     sandbox: SandboxConfig
 }
 

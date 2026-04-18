@@ -17,6 +17,8 @@ const registry = new RunRegistry()
 const codeLensProvider = new ToTinkerCodeLensProvider()
 const RUN_FILE_CONTEXT = 'toTinker.showRunFile'
 
+let extensionContext: vscode.ExtensionContext | undefined
+
 interface RunRequest {
     requestedMode: RunMode
     target?: unknown
@@ -28,6 +30,7 @@ interface ResultTypeLinkPayload {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+    extensionContext = context
     output.register(context)
     codeLensProvider.register(context)
 
@@ -64,6 +67,15 @@ export function activate(context: vscode.ExtensionContext): void {
         ),
         vscode.commands.registerCommand(COMMANDS.toggleSandbox, async () => {
             await toggleSandbox()
+        }),
+        vscode.commands.registerCommand(COMMANDS.resetDisclaimer, async () => {
+            await extensionContext?.globalState.update(
+                'hasAcceptedDryRunDisclaimer',
+                false,
+            )
+            void vscode.window.showInformationMessage(
+                'To Tinker Dry Run disclaimer has been reset.',
+            )
         }),
         vscode.commands.registerCommand(
             COMMANDS.runMethodAt,
@@ -124,6 +136,38 @@ async function runRequest(runRequest: RunRequest): Promise<void> {
         const environment = prepareExecutionEnvironment(document)
         const config = getConfig()
         const sandboxEnabled = config.sandbox.defaultEnabled
+
+        if (sandboxEnabled) {
+            const hasAccepted = extensionContext?.globalState.get<boolean>(
+                'hasAcceptedDryRunDisclaimer',
+                false,
+            )
+
+            if (extensionContext && !hasAccepted) {
+                const choice = await vscode.window.showInformationMessage(
+                    'Dry Run mode is active! It acts as a safety net by intercepting common side-effects like emails and database changes during local experimentation.',
+                    'I Understand',
+                    'Learn More',
+                )
+
+                if (choice === 'Learn More') {
+                    await vscode.env.openExternal(
+                        vscode.Uri.parse(
+                            'https://github.com/dominosaurs/to-tinker/blob/main/docs/DRY_RUN.md',
+                        ),
+                    )
+                }
+
+                if (choice !== 'I Understand') {
+                    return
+                }
+
+                await extensionContext.globalState.update(
+                    'hasAcceptedDryRunDisclaimer',
+                    true,
+                )
+            }
+        }
 
         const planned = planRun(
             createPlanRunInput(
@@ -225,7 +269,7 @@ async function toggleSandbox(): Promise<void> {
     const enabled = !getConfig().sandbox.defaultEnabled
     await setSandboxDefaultEnabled(enabled)
     void vscode.window.showInformationMessage(
-        `To Tinker sandbox ${enabled ? 'enabled' : 'disabled'}.`,
+        `To Tinker Dry Run mode ${enabled ? 'enabled' : 'disabled'}.`,
     )
 }
 

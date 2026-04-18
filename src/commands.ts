@@ -1,5 +1,6 @@
 export const COMMANDS = {
     openResultTypeLink: 'toTinker.openResultTypeLink',
+    resetDisclaimer: 'toTinker.resetDisclaimer',
     runDefault: 'toTinker.runDefault',
     runFile: 'toTinker.runFile',
     runFunctionAt: 'toTinker.runFunctionAt',

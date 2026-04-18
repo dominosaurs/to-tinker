@@ -78,6 +78,7 @@ export const window = {
     showInformationMessage: vi.fn(),
     showInputBox: vi.fn(),
     showTextDocument: vi.fn(),
+    showWarningMessage: vi.fn(async () => 'I Understand'),
     visibleTextEditors: [] as unknown[],
 }
 

@@ -31,7 +31,7 @@ export function buildResultViewModel(
         .filter(Boolean)
         .join('\n')
 
-    const sandboxLabel = summary.sandboxEnabled ? 'sandbox' : '⚠ no sandbox'
+    const sandboxLabel = summary.sandboxEnabled ? 'dry run' : '⚠ real execution'
     const modeLabel = formatMode(summary.mode)
 
     return {

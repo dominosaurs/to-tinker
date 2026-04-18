@@ -169,9 +169,9 @@ describe('result view rendering', () => {
         })
 
         expect(sandboxedHtml).toContain('class="chip chip-muted"')
-        expect(sandboxedHtml).toContain('sandbox')
+        expect(sandboxedHtml).toContain('dry run')
         expect(unsafeHtml).toContain('class="chip chip-alert"')
-        expect(unsafeHtml).toContain('⚠ no sandbox')
+        expect(unsafeHtml).toContain('⚠ real execution')
     })
 
     it('renders output type links for external docs', async () => {

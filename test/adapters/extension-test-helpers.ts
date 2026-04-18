@@ -1,10 +1,19 @@
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
 import type * as vscode from 'vscode'
 import { commands, window } from '../vscode'
 
 export async function activateExtension(): Promise<void> {
     const { activate } = await import('../../src/extension')
     const context = {
+        globalState: {
+            get: (key: string, defaultValue: unknown) => {
+                if (key === 'hasAcceptedDryRunDisclaimer') {
+                    return true
+                }
+                return defaultValue
+            },
+            update: vi.fn(),
+        },
         subscriptions: [],
     } as unknown as vscode.ExtensionContext
     activate(context)

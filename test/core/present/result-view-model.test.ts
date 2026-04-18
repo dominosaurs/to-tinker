@@ -25,7 +25,7 @@ describe('result view model', () => {
         expect(model.title).toBe('Success · Selected Code · demo.php')
         expect(model.modeLabel).toBe('Selected Code')
         expect(model.fileLabel).toBe('demo.php')
-        expect(model.sandboxLabel).toBe('sandbox')
+        expect(model.sandboxLabel).toBe('dry run')
         expect(model.sandboxTone).toBe('muted')
     })
 
@@ -50,7 +50,7 @@ describe('result view model', () => {
 
         expect(model.targetLabel).toBe('build_report')
         expect(model.elapsed).toBe('9 ms')
-        expect(model.sandboxLabel).toBe('⚠ no sandbox')
+        expect(model.sandboxLabel).toBe('⚠ real execution')
         expect(model.sandboxTone).toBe('alert')
         expect(model.statusClassName).toBe('status-error')
     })

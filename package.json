@@ -43,7 +43,12 @@
             {
                 "category": "To Tinker",
                 "command": "toTinker.toggleSandbox",
-                "title": "Toggle Sandbox"
+                "title": "Toggle Dry Run Mode"
+            },
+            {
+                "category": "To Tinker",
+                "command": "toTinker.resetDisclaimer",
+                "title": "Reset Dry Run Disclaimer"
             }
         ],
         "configuration": {
@@ -60,12 +65,12 @@
                 },
                 "toTinker.sandbox.defaultEnabled": {
                     "default": true,
-                    "description": "Enable the partial sandbox by default.",
+                    "description": "Enable experimental Dry Run mode by default. (Best-effort side-effect prevention)",
                     "type": "boolean"
                 },
                 "toTinker.sandbox.fakeStorage": {
                     "default": false,
-                    "description": "Also fake Laravel storage disks inside sandboxed runs.",
+                    "description": "Also fake Laravel storage disks inside Dry Run mode.",
                     "type": "boolean"
                 },
                 "toTinker.timeoutSeconds": {
@@ -110,7 +115,7 @@
         "@shikijs/types": "^4.0.2",
         "@types/node": "^24.12.2",
         "@types/vscode": "^1.116.0",
-        "@vscode/vsce": "^3.9.0",
+        "@vscode/vsce": "^3.9.1",
         "knip": "^6.4.1",
         "preact": "^10.29.1",
         "preact-render-to-string": "^6.6.7",

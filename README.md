@@ -13,7 +13,7 @@ It runs through `php artisan tinker`, stays inside your Laravel app context, and
 - 🧠 Run methods and functions directly from the editor with CodeLens and callable detection
 - 🔁 Execute real Laravel app context through `php artisan tinker`, not a fake mini runtime
 - 🖥️ See output in a dedicated result panel built for readable values, errors, and source context
-- 🛡️ Stay safe by default with sandboxing, then switch to real side effects only when you mean it
+- 🧪 Prevent accidental side-effects with Dry Run mode, then switch to real execution only when you mean it
 
 ## ⚙️ How It Works
 
@@ -49,27 +49,20 @@ Most Laravel developers eventually do the same awkward loop:
 
 To Tinker exists to remove that friction. It gives you a one-click way to run PHP and Laravel code directly from VS Code while still using Laravel Tinker as the execution path.
 
-## 🧭 Execution Model
+## 🧪 Dry Run (Experimental)
 
-- `To Tinker: File` means: run whole file and print last meaningful value
-- `To Tinker: Run` with no selection means: usually run everything so far through current line, then print final value
-- `To Tinker: Run` with selection means: usually run everything so far through end of selection, then print final value
-- Inside functions and methods, line and partial selection runs fall back to snippet-only smart capture so incomplete callable context does not break execution
-- Whole function selections run as functions
-- Whole method selections run as methods
-- Final value capture understands plain expressions, assignments, chained assignments, compound assignments, and increment/decrement expressions
-- Comments are ignored structurally for final-value detection
+Dry Run mode provides a **safety net** by intercepting common side-effects using Laravel's native fakes and transactions. It is designed to prevent accidental data changes or emails during local experimentation.
 
-## 🛡️ Safety model
+> [!TIP]
+> **Experimental Feature:** While robust, Dry Run is a "best-effort" tool for development convenience. It is not a security boundary and should not be used against production data.
 
-Sandbox is partial, not full isolation.
+- 📬 Fakes `Mail`, `Notification`, `Event`, `Bus`, `Queue`
+- 💾 Optionally fakes `Storage`
+- 🗃️ Wraps DB connections in transactions and rolls them back
 
-- Fakes `Mail`, `Notification`, `Event`, `Bus`, `Queue` 📬
-- Optionally fakes `Storage` 💾
-- Wraps opened DB connections in transactions and rolls them back 🗃️
-- Still may allow non-faked side effects like network calls, filesystem writes outside fake disks, and framework behavior tied to commit semantics ⚠️
+See the [Dry Run Documentation](docs/DRY_RUN.md) for technical details and **how to contribute** to making it even more solid.
 
-Use the `To Tinker: Toggle Sandbox` command when you want real execution.
+Use the `To Tinker: Toggle Dry Run Mode` command to switch between modes.
 
 ## ⚙️ Configuration
 
@@ -79,8 +72,8 @@ Configure To Tinker in VS Code through Settings and search for `To Tinker`.
 | --- | --- | --- | --- |
 | `toTinker.codeLens.enabled` | `boolean` | `true` | Show To Tinker CodeLens above supported PHP methods. |
 | `toTinker.phpPath` | `string` | `""` | Path to the PHP executable. Leave empty to use `php` from `PATH`. |
-| `toTinker.sandbox.defaultEnabled` | `boolean` | `true` | Enable the partial sandbox by default. |
-| `toTinker.sandbox.fakeStorage` | `boolean` | `false` | Also fake Laravel storage disks inside sandboxed runs. |
+| `toTinker.sandbox.defaultEnabled` | `boolean` | `true` | Enable experimental Dry Run mode by default. |
+| `toTinker.sandbox.fakeStorage` | `boolean` | `false` | Also fake Laravel storage disks inside Dry Run mode. |
 | `toTinker.timeoutSeconds` | `number` | `15` | Timeout for the spawned `artisan tinker` process. |
 
 ## 🩺 Troubleshooting
