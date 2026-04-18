@@ -58,6 +58,30 @@ return $value;
         )
     })
 
+    it('updates run file context for function-only php files on activation', async () => {
+        setActiveEditor(
+            createCursorEditor(
+                createTextDocument(`<?php
+use Illuminate\\Support\\Str;
+
+function slugify(string $value): string
+{
+    return Str::slug($value);
+}
+`),
+                new vscode.Position(1, 0),
+            ),
+        )
+
+        await activateExtension()
+
+        expect(commands.executeCommand).toHaveBeenCalledWith(
+            'setContext',
+            'toTinker.showRunFile',
+            true,
+        )
+    })
+
     it('opens external docs links from the result view command bridge', async () => {
         await activateAndRunCommand(COMMANDS.openResultTypeLink, {
             kind: 'external',

@@ -9,6 +9,7 @@ namespace App\\Http\\Controllers;
 
 use Illuminate\\Http\\Request;
 
+#[SomeAttribute]
 class UserController
 {
     public function index(Request $request)
@@ -31,6 +32,40 @@ function slugify(string $value): string
 }
 `),
         ).toBe(true)
+    })
+
+    it('shows run file for top-level assignments and echoes', () => {
+        expect(
+            shouldShowRunFileForText(`<?php
+use Illuminate\\Support\\Str;
+
+$value = Str::slug('Hello World');
+echo $value;
+`),
+        ).toBe(true)
+    })
+
+    it('hides run file when only structural lines and comments exist', () => {
+        expect(
+            shouldShowRunFileForText(`<?php
+// comment
+/*
+ * comment block
+ */
+
+namespace App;
+
+use Illuminate\\Support\\Str;
+
+class UserController
+{
+    public function index()
+    {
+        return [];
+    }
+}
+`),
+        ).toBe(false)
     })
 
     it('shows run file for files with top-level executable statements', () => {
