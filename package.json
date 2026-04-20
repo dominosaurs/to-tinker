@@ -171,5 +171,5 @@
         "prepackage": "bun run build",
         "test": "vitest run"
     },
-    "version": "0.1.1"
+    "version": "0.1.2"
 }
