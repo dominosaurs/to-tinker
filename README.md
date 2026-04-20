@@ -66,18 +66,6 @@ See the [Dry Run Documentation](docs/DRY_RUN.md) for technical details and **how
 
 Use the `To Tinker: Toggle Dry Run Mode` command to switch between modes.
 
-## ⚙️ Configuration
-
-Configure To Tinker in VS Code through Settings and search for `To Tinker`.
-
-| Setting | Type | Default | Description |
-| --- | --- | --- | --- |
-| `toTinker.codeLens.enabled` | `boolean` | `true` | Show To Tinker CodeLens above supported PHP methods. |
-| `toTinker.phpPath` | `string` | `""` | Path to the PHP executable. Leave empty to use `php` from `PATH`. |
-| `toTinker.sandbox.defaultEnabled` | `boolean` | `true` | Enable experimental Dry Run mode by default. |
-| `toTinker.sandbox.fakeStorage` | `boolean` | `false` | Also fake Laravel storage disks inside Dry Run mode. |
-| `toTinker.timeoutSeconds` | `number` | `15` | Timeout for the spawned `artisan tinker` process. |
-
 ## 🩺 Troubleshooting
 
 | Problem | Likely cause | What to do |
