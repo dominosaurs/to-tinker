@@ -160,7 +160,6 @@
     "license": "MIT",
     "main": "./dist/extension.js",
     "name": "to-tinker",
-    "preview": true,
     "publisher": "dominosaurs",
     "repository": {
         "type": "git",
@@ -169,9 +168,7 @@
     "scripts": {
         "build": "vite build",
         "lint": "knip --reporter compact && biome check --write && tsc --noEmit",
-        "package": "vsce package --no-dependencies --allow-missing-repository",
-        "prepackage": "bun run build",
         "test": "vitest run"
     },
-    "version": "0.1.2"
+    "version": "0.0.0"
 }

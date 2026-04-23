@@ -1,0 +1,176 @@
+name: Publish Extension
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_channel:
+        description: "Release channel"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - stable
+          - pre-release
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare Release Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.mode.outputs.channel }}
+      version: ${{ steps.mode.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Apply release version from tag
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must be vX.Y.Z, got: ${RELEASE_TAG}"
+            exit 1
+          fi
+
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.RELEASE_VERSION; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');"
+          echo "Applied package.json version=${RELEASE_VERSION}"
+
+      - name: Lint, Test & Build
+        run: |
+          bun run lint
+          bun run test
+          bun run build
+
+      - name: Resolve publish mode
+        id: mode
+        env:
+          INPUT_RELEASE_CHANNEL: ${{ github.event.inputs.release_channel }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="${RELEASE_TAG:-${GITHUB_REF_NAME:-}}"
+          CHANNEL="${INPUT_RELEASE_CHANNEL:-auto}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Release tag must be vX.Y.Z, got: ${TAG}"
+              exit 1
+            fi
+          fi
+
+          if [ "${CHANNEL}" = "auto" ]; then
+            if [ "${GITHUB_EVENT_NAME}" = "release" ] && [ "${RELEASE_IS_PRERELEASE}" = "true" ]; then
+              CHANNEL="pre-release"
+            elif [[ "${VERSION}" == *-* ]] || [[ "${TAG}" == *-* ]]; then
+              CHANNEL="pre-release"
+            else
+              CHANNEL="stable"
+            fi
+          fi
+
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "channel=${CHANNEL}" >> "${GITHUB_OUTPUT}"
+          echo "Resolved channel=${CHANNEL} version=${VERSION}"
+
+  publish-vsce:
+    name: Publish VS Code Marketplace
+    runs-on: ubuntu-latest
+    needs: prepare
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Validate VSCE token
+        run: |
+          if [ -z "${VSCE_PAT}" ]; then
+            echo "Missing VSCE_PAT secret."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Apply resolved version
+        run: |
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.RELEASE_VERSION; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');"
+          echo "Applied package.json version=${RELEASE_VERSION}"
+
+      - name: Build Extension
+        run: bun run build
+
+      - name: Publish stable
+        if: env.RELEASE_CHANNEL == 'stable'
+        run: bunx vsce publish -p "${VSCE_PAT}"
+
+      - name: Publish pre-release
+        if: env.RELEASE_CHANNEL == 'pre-release'
+        run: bunx vsce publish --pre-release -p "${VSCE_PAT}"
+
+  publish-ovsx:
+    name: Publish Open VSX
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: ${{ secrets.OVSX_PAT != '' }}
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Validate Open VSX token
+        run: echo "OVSX_PAT is configured."
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Apply resolved version
+        run: |
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.RELEASE_VERSION; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');"
+          echo "Applied package.json version=${RELEASE_VERSION}"
+
+      - name: Build Extension
+        run: bun run build
+
+      - name: Publish stable
+        if: env.RELEASE_CHANNEL == 'stable'
+        run: bunx ovsx publish -p "${OVSX_PAT}"
+
+      - name: Publish pre-release
+        if: env.RELEASE_CHANNEL == 'pre-release'
+        run: bunx ovsx publish --pre-release -p "${OVSX_PAT}"
