@@ -5,8 +5,8 @@ import * as vscode from 'vscode'
 import { getConfig } from './config'
 import type { Log } from './log'
 import { resolvePhpExecutable } from './php'
-import { buildTinkerPayload } from './wrapper'
 import { resolveLaravelWorkspace } from './workspace'
+import { buildTinkerPayload } from './wrapper'
 
 interface DoctorCheck {
     detail: string
@@ -197,7 +197,8 @@ function resolveWorkspaceForDoctor(): {
         } catch (error) {
             return {
                 check: {
-                    detail: error instanceof Error ? error.message : String(error),
+                    detail:
+                        error instanceof Error ? error.message : String(error),
                     name: 'workspace',
                     status: 'fail',
                 },
