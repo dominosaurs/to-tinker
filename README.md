@@ -74,3 +74,22 @@ Use the `To Tinker: Toggle Dry Run Mode` command to switch between modes.
 | `No Laravel artisan file found...` | The active file is not inside a Laravel project root that contains `artisan`. | Open the project root in VS Code and run To Tinker from a PHP file inside that workspace. |
 | `Configured PHP path is not executable...` | `toTinker.phpPath` points to the wrong location, or PHP is not available to the extension host. | Fix `toTinker.phpPath`, or clear it and use `php` from `PATH`. |
 | Execution timed out | The Tinker process exceeded `toTinker.timeoutSeconds`. | Increase `toTinker.timeoutSeconds` or reduce the amount of work being run. |
+
+### Run Doctor Diagnostics
+
+Use `To Tinker: Doctor` when runs fail or keep timing out. It validates:
+
+- extension config and timeout value
+- Laravel workspace and `artisan` resolution
+- PHP executable and `php -v`
+- `artisan --version`
+- plain `artisan tinker` ping
+- To Tinker wrapped execution probe (Dry Run off/on)
+
+Open `To Tinker Logs` after Doctor runs to inspect `doctor PASS/WARN/FAIL` lines.
+
+For timeout incidents, Doctor helps isolate whether the issue is:
+
+- environment/runtime setup (`php` / `artisan`)
+- plain Tinker startup
+- To Tinker wrapping path (Dry Run instrumentation)
