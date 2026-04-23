@@ -168,9 +168,6 @@
     },
     "scripts": {
         "build": "vite build",
-        "build:result-view": "vite build --config vite.result-view.config.ts",
-        "dev:result-view": "vite --config vite.result-view.config.ts",
-        "knip": "knip --reporter compact",
         "lint": "knip --reporter compact && biome check --write && tsc --noEmit",
         "package": "vsce package --no-dependencies --allow-missing-repository",
         "prepackage": "bun run build",

@@ -34,7 +34,9 @@ describe('wrapper', () => {
         expect(payload).toContain(
             '\\Illuminate\\Database\\Events\\ConnectionEstablished::class',
         )
-        expect(payload).toContain("method_exists($__toTinkerDb, 'getConnections')")
+        expect(payload).toContain(
+            "method_exists($__toTinkerDb, 'getConnections')",
+        )
         expect(payload).toContain(
             "config(['database.connections.' . $__toTinkerName . '.options' => $__toTinkerOptions]);",
         )
