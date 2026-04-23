@@ -23,6 +23,23 @@ describe('wrapper', () => {
         expect(payload.startsWith('<?php')).toBe(false)
     })
 
+    it('lazy-wraps targeted connections via connection-established hook', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: 'return 42;',
+        })
+
+        expect(payload).toContain(
+            '\\Illuminate\\Database\\Events\\ConnectionEstablished::class',
+        )
+        expect(payload).toContain("method_exists($__toTinkerDb, 'getConnections')")
+        expect(payload).toContain(
+            "config(['database.connections.' . $__toTinkerName . '.options' => $__toTinkerOptions]);",
+        )
+    })
+
     it('wraps bare expressions for smart capture', () => {
         const payload = buildTinkerPayload({
             fakeStorage: false,
