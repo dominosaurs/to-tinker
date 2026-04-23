@@ -29,7 +29,7 @@ jobs:
       version: ${{ steps.mode.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -52,7 +52,7 @@ jobs:
           fi
 
           RELEASE_VERSION="${RELEASE_TAG#v}"
-          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.RELEASE_VERSION; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');"
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.argv[1]; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');" "${RELEASE_VERSION}"
           echo "Applied package.json version=${RELEASE_VERSION}"
 
       - name: Lint, Test & Build
@@ -114,7 +114,7 @@ jobs:
       RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -133,7 +133,11 @@ jobs:
 
       - name: Apply resolved version
         run: |
-          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.RELEASE_VERSION; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');"
+          if [[ ! "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid resolved version: ${RELEASE_VERSION}"
+            exit 1
+          fi
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.argv[1]; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');" "${RELEASE_VERSION}"
           echo "Applied package.json version=${RELEASE_VERSION}"
 
       - name: Build Extension
@@ -158,7 +162,7 @@ jobs:
       RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -173,7 +177,11 @@ jobs:
 
       - name: Apply resolved version
         run: |
-          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.RELEASE_VERSION; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');"
+          if [[ ! "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid resolved version: ${RELEASE_VERSION}"
+            exit 1
+          fi
+          node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.argv[1]; fs.writeFileSync(p, JSON.stringify(j, null, 4)+'\n');" "${RELEASE_VERSION}"
           echo "Applied package.json version=${RELEASE_VERSION}"
 
       - name: Build Extension
