@@ -22,6 +22,11 @@
             },
             {
                 "category": "To Tinker",
+                "command": "toTinker.doctor",
+                "title": "Doctor"
+            },
+            {
+                "category": "To Tinker",
                 "command": "toTinker.runDefault",
                 "enablement": "editorLangId == php",
                 "icon": {

@@ -10,6 +10,7 @@ import {
     executeTinker,
     prepareExecutionEnvironment,
     renderExecutionReport,
+    runDoctor,
     setSandboxDefaultEnabled,
     useExtensionFixture,
 } from './extension-fixture'
@@ -108,5 +109,11 @@ describe('extension orchestration', () => {
         expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
             'To Tinker Dry Run mode disabled.',
         )
+    })
+
+    it('runs doctor diagnostics command', async () => {
+        await activateAndRunCommand('toTinker.doctor')
+
+        expect(runDoctor).toHaveBeenCalledWith(expect.anything())
     })
 })

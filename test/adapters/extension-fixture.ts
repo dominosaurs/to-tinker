@@ -7,6 +7,7 @@ export const renderExecutionReport = vi.fn()
 export const prepareExecutionEnvironment = vi.fn()
 export const promptForParameter = vi.fn()
 export const setSandboxDefaultEnabled = vi.fn()
+export const runDoctor = vi.fn()
 export const buildFunctionPayload = vi.fn(() => 'function payload')
 export const buildMethodPayload = vi.fn(() => 'method payload')
 export const buildTinkerPayload = vi.fn(() => 'payload')
@@ -41,6 +42,10 @@ vi.mock('../../src/config', async () => {
         setSandboxDefaultEnabled,
     }
 })
+
+vi.mock('../../src/doctor', () => ({
+    runDoctor,
+}))
 
 vi.mock('../../src/php', () => ({
     promptForParameter,
@@ -111,5 +116,6 @@ export function useExtensionFixture(): void {
         buildFunctionPayload.mockReturnValue('function payload')
         buildTinkerPayload.mockReturnValue('payload')
         setSandboxDefaultEnabled.mockResolvedValue(undefined)
+        runDoctor.mockResolvedValue(undefined)
     })
 }

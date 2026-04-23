@@ -1,4 +1,5 @@
 export const COMMANDS = {
+    doctor: 'toTinker.doctor',
     openResultTypeLink: 'toTinker.openResultTypeLink',
     resetDisclaimer: 'toTinker.resetDisclaimer',
     runDefault: 'toTinker.runDefault',
