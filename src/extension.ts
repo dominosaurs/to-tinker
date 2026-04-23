@@ -5,6 +5,7 @@ import { getConfig, setSandboxDefaultEnabled } from './config'
 import { shouldShowRunFileForText } from './core/discovery/top-level-file-shape'
 import { type PlanRunInput, planRun } from './core/plan/plan-run'
 import { prepareExecution } from './core/prepare/prepare-execution'
+import { runDoctor } from './doctor'
 import { Log } from './log'
 import { Output } from './output'
 import { promptForParameter } from './php'
@@ -58,6 +59,9 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
         vscode.commands.registerCommand(COMMANDS.showLogs, async () => {
             log.show()
+        }),
+        vscode.commands.registerCommand(COMMANDS.doctor, async () => {
+            await runDoctor(log)
         }),
         vscode.commands.registerCommand(
             COMMANDS.openResultTypeLink,
