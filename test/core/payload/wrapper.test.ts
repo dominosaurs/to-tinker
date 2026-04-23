@@ -15,7 +15,7 @@ describe('wrapper', () => {
         })
 
         expect(payload).toContain('Mail::fake();')
-        expect(payload).toContain('DB::connection')
+        expect(payload).toContain('ConnectionEstablished::class')
         expect(payload).toContain(
             "$__toTinkerUserCode = base64_decode('cmV0dXJuIDQyOw==');",
         )
@@ -39,6 +39,44 @@ describe('wrapper', () => {
         )
         expect(payload).toContain(
             "config(['database.connections.' . $__toTinkerName . '.options' => $__toTinkerOptions]);",
+        )
+        expect(payload).not.toContain(
+            'DB::connection((string) $__toTinkerName)',
+        )
+    })
+
+    it('tracks baseline transaction levels for safe rollback', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: 'return 42;',
+        })
+
+        expect(payload).toContain('$__toTinkerBaselineTransactionLevels = [];')
+        expect(payload).toContain(
+            'while ($__toTinkerConnection->transactionLevel() > $__toTinkerBaselineLevel)',
+        )
+    })
+
+    it('marks connection as wrapped only after transaction attachment succeeds', () => {
+        const payload = buildTinkerPayload({
+            fakeStorage: false,
+            filePath: '/tmp/demo.php',
+            sandboxEnabled: true,
+            selectionOrFileCode: 'return 42;',
+        })
+
+        expect(payload).toContain(
+            '$__toTinkerWrappedConnectionIds[$__toTinkerConnectionId] = true;',
+        )
+        expect(payload).toContain('$__toTinkerConnection->beginTransaction();')
+        expect(
+            payload.indexOf('$__toTinkerConnection->beginTransaction();'),
+        ).toBeLessThan(
+            payload.lastIndexOf(
+                '$__toTinkerWrappedConnectionIds[$__toTinkerConnectionId] = true;',
+            ),
         )
     })
 

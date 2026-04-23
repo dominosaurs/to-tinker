@@ -182,6 +182,7 @@ function resolveWorkspaceForDoctor(): {
           }
         | undefined
 } {
+    let activeDocumentResolutionError: string | undefined
     const activeDocument = vscode.window.activeTextEditor?.document
     if (activeDocument && activeDocument.languageId === 'php') {
         try {
@@ -195,15 +196,8 @@ function resolveWorkspaceForDoctor(): {
                 workspace,
             }
         } catch (error) {
-            return {
-                check: {
-                    detail:
-                        error instanceof Error ? error.message : String(error),
-                    name: 'workspace',
-                    status: 'fail',
-                },
-                workspace: undefined,
-            }
+            activeDocumentResolutionError =
+                error instanceof Error ? error.message : String(error)
         }
     }
 
@@ -212,9 +206,11 @@ function resolveWorkspaceForDoctor(): {
         if (fs.existsSync(artisanPath)) {
             return {
                 check: {
-                    detail: `root=${folder.uri.fsPath}, artisan=${artisanPath}`,
+                    detail: activeDocumentResolutionError
+                        ? `fallback root=${folder.uri.fsPath}, artisan=${artisanPath}; active editor: ${activeDocumentResolutionError}`
+                        : `root=${folder.uri.fsPath}, artisan=${artisanPath}`,
                     name: 'workspace',
-                    status: 'pass',
+                    status: activeDocumentResolutionError ? 'warn' : 'pass',
                 },
                 workspace: { artisanPath, rootPath: folder.uri.fsPath },
             }
@@ -223,7 +219,9 @@ function resolveWorkspaceForDoctor(): {
 
     return {
         check: {
-            detail: 'No Laravel workspace found (missing artisan).',
+            detail: activeDocumentResolutionError
+                ? `${activeDocumentResolutionError} No Laravel workspace found (missing artisan).`
+                : 'No Laravel workspace found (missing artisan).',
             name: 'workspace',
             status: 'fail',
         },
