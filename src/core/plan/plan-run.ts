@@ -148,11 +148,6 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
         findEnclosingMethod(documentText, selectionEndOffset) ??
         findEnclosingFunction(documentText, selectionEndOffset)
     if (enclosingCallable) {
-        const bodyStart = findCallableBodyStart(
-            documentText,
-            enclosingCallable.start,
-            enclosingCallable.end,
-        )
         const sourceCode = buildCallableScopedEvalSource(
             documentText,
             enclosingCallable.start,
@@ -165,7 +160,7 @@ function planSelectionRun(input: PlanRunInput): PlanRunResult {
             ok: true,
             plan: {
                 displaySourceCode: documentText.slice(
-                    bodyStart,
+                    selectionStartOffset,
                     selectionEndOffset,
                 ),
                 mode: 'selection',
@@ -223,13 +218,8 @@ function planLineRun(input: PlanRunInput): EvalRunPlan {
         findEnclosingFunction(documentText, selectionActiveOffset)
 
     if (enclosingCallable) {
-        const bodyStart = findCallableBodyStart(
-            documentText,
-            enclosingCallable.start,
-            enclosingCallable.end,
-        )
         return {
-            displaySourceCode: documentText.slice(bodyStart, lineEnd),
+            displaySourceCode: documentText.slice(lineStart, lineEnd),
             mode: 'line',
             smartCapture: true,
             sourceCode: buildCallableScopedEvalSource(

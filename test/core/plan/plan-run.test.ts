@@ -73,10 +73,50 @@ describe('planRun', () => {
         expect(result).toEqual({
             ok: true,
             plan: expect.objectContaining({
+                displaySourceCode: '$value = 1;\n    $value;',
                 mode: 'selection',
                 sourceCode: '$value = 1;\n    $value;',
                 sourceLineEnd: 4,
                 sourceLineStart: 3,
+                strategy: 'eval',
+            }),
+        })
+    })
+
+    it('renders only the targeted line for callable-scoped line runs', () => {
+        const source = [
+            '<?php',
+            'function build_report() {',
+            '    $value = 1;',
+            '    $value;',
+            '}',
+            '',
+        ].join('\n')
+        const document = createTextDocument(source)
+        const active = new vscode.Position(3, 10)
+
+        const result = planRun({
+            documentPath: document.uri.fsPath,
+            documentText: document.getText(),
+            languageId: document.languageId,
+            requestedMode: 'line',
+            selectionActiveOffset: document.offsetAt(active),
+            selectionEndLine: active.line,
+            selectionEndOffset: document.offsetAt(active),
+            selectionStartLine: active.line,
+            selectionStartOffset: document.offsetAt(
+                new vscode.Position(active.line, 0),
+            ),
+            selectionsCount: 1,
+        })
+
+        expect(result).toEqual({
+            ok: true,
+            plan: expect.objectContaining({
+                displaySourceCode: '    $value;',
+                mode: 'line',
+                sourceLineEnd: 4,
+                sourceLineStart: 4,
                 strategy: 'eval',
             }),
         })
